@@ -45,16 +45,12 @@ An Amazon SQS queue and AWS Lambda function is create for each tenant to allow f
 4. After deployment the CDK will list the outputs as follows:
    1. APIGatewayWebsocketRateLimitStack.SampleClient
       1. The URI points to the sample web page described below
-      2. https://{httpApiID}.execute-api.{region}.amazonaws.com/production/SampleClient
    2. APIGatewayWebsocketRateLimitStack.SessionURL
-      1. This URI points to the endpoint which is able to create sessions 
-      2. https://{httpApiID}.execute-api.{region}.amazonaws.com/production/session
+      1. This URI points to the endpoint which is able to create sessions
    3. APIGatewayWebsocketRateLimitStack.TenantURL
       1. This URI is only exposed for demo purposes and is used to get a list of the current tenant Ids
-      2. https://{httpApiID}.execute-api.{region}.amazonaws.com/production/tenant
    4. APIGatewayWebsocketRateLimitStack.WebSocketURL
       1. This URI is the websocket connection endpoint
-      2. wss://{websocketApiID}.execute-api.{region}.amazonaws.com/production
 
 ## Sample Web Page
 <img alt="Sample Web Page" src="./images/sample.jpg" />
@@ -63,7 +59,7 @@ The sample can be used to test the various aspects of the system. The following 
 1. Open the web page given as the output **APIGatewayWebsocketRateLimitStack.SampleClient** from the CDK deployment
 2. Wait for the tenant Ids to load
 3. Click the **Create Session** button to create a new session
-4. Click the **Connect**
+4. Click the **Connect** button
 5. Once connected try both the **Send** and **Send Queue** buttons
    1. The **Send** button will send via the **default** route which uses the pooled execution model
    2. The **Send Queue** button will send via the **PerTenantSQS** route which uses the siloed SQS FIFO queue execution model
