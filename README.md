@@ -74,7 +74,9 @@ The sample can be used to test the various aspects of the system. The following 
 1. In the root directory of the repository execute the command ```cdk destroy```
 
 ## Silo vs Pooled Message processing
-SQS queues are used in silo mode and the API gateway will use the authorization contexts tenantId to determine the queue name per tenant. Each SQS queue has a linked Lambda function to process messages and send a reply response.
+### Silo
+SQS queues and siloed Lambdas per tenant are used in silo mode. The API gateway will use the authorization contexts tenantId to determine the queue name per tenant. Each SQS queue has a linked Lambda function to process messages which send an echo reply.
+### Pooled
 Basic API Gateway to Lambda execution is used for pooled mode. Each message received by the API gateway on the default route will invoke the reply Lambda. The Lambda will use the authorization context to handle tenant isolation.
 
 ## DynamoDB Table Structures
