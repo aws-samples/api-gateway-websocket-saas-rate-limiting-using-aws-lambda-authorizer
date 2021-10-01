@@ -57,7 +57,7 @@ An Amazon SQS queue and AWS Lambda function is create for each tenant to allow f
       2. wss://{websocketApiID}.execute-api.{region}.amazonaws.com/production
 
 ## Sample Web Page
-<img alt="Sample Web Page" src="./images/sample.png" />
+<img alt="Sample Web Page" src="./images/sample.jpg" />
 
 The sample can be used to test the various aspects of the system. The following steps are the happy path:
 1. Open the web page given as the output **APIGatewayWebsocketRateLimitStack.SampleClient** from the CDK deployment
