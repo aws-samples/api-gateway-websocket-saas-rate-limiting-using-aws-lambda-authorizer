@@ -1,6 +1,3 @@
-// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
-// SPDX-License-Identifier: MIT-0
-
 const tenant = require("./Tenant.js");
 function seconds_since_epoch() { return Math.floor(Date.now() / 1000) }
 const secondsPerMinute = 60;
@@ -37,8 +34,8 @@ exports.handler = async function(event, context) {
 
         // Check if we are over the number of connections allowed per tenant/session
         response = await dynamo.get({ "TableName": process.env.SessionTableName, "Key": { tenantId: tenantId, sessionId: sessionId } }).promise();
-        if (response && response.Item && response.Item.connectionIds && response.Item.connectionIds.values.length >= connectionsPerSession) {
-            console.log("Tenant:Session " + tenantId + "-" + sessionId + " not found or over session total limit");
+        if ((!response || !response.Item) || (response && response.Item && response.Item.connectionIds && response.Item.connectionIds.values.length >= connectionsPerSession)) {
+            console.log("Tenant: " + tenantId + " Session: " + sessionId + " not found or over session total limit");
             return tenant.generateDeny(event.methodArn, event);
         }
 
@@ -80,5 +77,3 @@ exports.handler = async function(event, context) {
         return tenant.generateDeny(event.methodArn, event);
     }
 }
-
-
