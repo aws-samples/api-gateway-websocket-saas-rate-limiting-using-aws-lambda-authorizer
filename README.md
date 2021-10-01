@@ -1,6 +1,13 @@
 # API Gateway Websocket SaaS Rate Limiting using AWS Lambda Authorizer
 
-API Gateway Websocket SaaS Rate Limiting using AWS Lambda Authorizer
+When creating a SaaS multi-tenant systems which require websocket connections we need a way to rate limit those connections on a per tenant basis. 
+With Amazon API Gateway you have the option to use usage plans with HTTP connections however they are not available for websockets. 
+To enable rate limiting we can use a <a href="https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-use-lambda-authorizer.html">API Gateway Lambda Authorizer</a> to validate a connection and control access. 
+Using a Lambda Authorizer we can implement code to allow the system to valid connection rates and throttle inbound connections on a per tenant basis.
+This sample also demonstrates pool and silo modes for handling the message traffic per tenant.
+The pool mode simply uses a single AWS Lambda to process all inbound messages using the authorization context to handle tenant isolation.
+The silo mode uses Amazon SQS to enable per tenant FIFO queue message ordering. 
+An Amazon SQS queue and AWS Lambda function is create for each tenant to allow for per tenant throttling and FIFO queue isolation per session of a tenant.
 
 ## Architecture
 <img alt="Architecture" src="./images/architecture.png" />
@@ -17,13 +24,20 @@ API Gateway Websocket SaaS Rate Limiting using AWS Lambda Authorizer
     6. Check if the system is over the total number of <b>connections per minute</b> allowed for the <b>tenant</b>
     7. Check if the system is over the total number of <b>connections per minute</b> allowed for the <b>session</b>
 5. An AWS Lambda function is used during connect to update the sessions connectionId set and increment the total number of connections for the tenant. This also updates the session TTL.
-6. An AWS Lambda function is invoked for each message received by a websocket connection. The Lambda will respond by echoing the message back to the sender. The Lambda will also send the inbound message AND the response to all other connectionIds for the same session. Each inbound message will also update the session TTL.
+6. Messages are processed as either silo or pooled depending on the route selected
+   1. To process message per tenant in silo mode with FIFO, messages are sent to the tenants corresponding SQS FIFO queue with the tenant, session, and connection ids as metadata.
+   2. An AWS Lambda function per tenant is used to read messages from the SQS FIFO queue with session based grouping to keep messages in order.
+   3. An AWS Lambda function is invoked for each message received by a websocket connection. The Lambda will respond by echoing the message back to the sender. The Lambda will also send the inbound message AND the response to all other connectionIds for the same session. Each inbound message will also update the session TTL.
 7. An AWS Lambda function is used during disconnect to remove the connectionId from the sessions connectionId set and also decrement the total number of connections for the tenant.
 8. Once all connections are closed the client will send an HTTP DELETE request to the Amazon API Gateway HTTP endpoint to remove the session.
 9. An AWS Lambda function is used to process all DynamoDB stream updates. This function will check for TTL events and remove connections for sessions that expire.
 
+## Silo vs Pooled Message processing
+SQS queues are used in silo mode and the API gateway will use the authorization contexts tenantId to determine the queue name per tenant.
+
+
 ## DynamoDB Table Structures
-All tables access is restricted by a partition key condition to only allow access to rows in which the primary index matches the current tenantId
+All tables access is restricted by a partition key condition to only allow access to rows for which the primary index matches the current tenantId.
 
 #### Tenant Table
 The tenant table is used to store the tenantIds and option details to allow each tenant to specify different rate limits.
