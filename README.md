@@ -35,8 +35,8 @@ An Amazon SQS queue and AWS Lambda function is create for each tenant to allow f
 9. An AWS Lambda function is used to process all DynamoDB stream updates. This function will check for TTL events and remove connections for sessions that expire.
 
 ## Silo vs Pooled Message processing
-SQS queues are used in silo mode and the API gateway will use the authorization contexts tenantId to determine the queue name per tenant.
-
+SQS queues are used in silo mode and the API gateway will use the authorization contexts tenantId to determine the queue name per tenant. Each SQS queue has a linked Lambda function to process messages and send a reply response.
+Basic API Gateway to Lambda execution is used for pooled mode. Each message received by the API gateway on the default route will invoke the reply Lambda. The Lambda will use the authorization context to handle tenant isolation.
 
 ## DynamoDB Table Structures
 All tables access is restricted by a partition key condition to only allow access to rows for which the primary index matches the current tenantId.
