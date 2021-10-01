@@ -1,3 +1,6 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
+
 const tenant = require("./Tenant.js");
 
 exports.handler = async function(event, context) {

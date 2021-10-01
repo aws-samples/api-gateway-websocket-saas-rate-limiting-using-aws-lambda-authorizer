@@ -1,3 +1,6 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
+
 const tenant = require("./Tenant.js");
 function seconds_since_epoch() { return Math.floor(Date.now() / 1000) }
 const secondsPerMinute = 60;
