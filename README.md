@@ -73,10 +73,6 @@ The sample can be used to test the various aspects of the system. The following 
 ## Cleanup
 1. In the root directory of the repository execute the command ```cdk destroy```
 
-## Sample Web Page
-This aws-sample comes with a sample web page to evaluate the system. Once the cdk package is deployed the outputs will list the following:
-1. The sample URI
-
 ## Silo vs Pooled Message processing
 SQS queues are used in silo mode and the API gateway will use the authorization contexts tenantId to determine the queue name per tenant. Each SQS queue has a linked Lambda function to process messages and send a reply response.
 Basic API Gateway to Lambda execution is used for pooled mode. Each message received by the API gateway on the default route will invoke the reply Lambda. The Lambda will use the authorization context to handle tenant isolation.
