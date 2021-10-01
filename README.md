@@ -34,6 +34,49 @@ An Amazon SQS queue and AWS Lambda function is create for each tenant to allow f
 8. Once all connections are closed the client will send an HTTP DELETE request to the Amazon API Gateway HTTP endpoint to remove the session.
 9. An AWS Lambda function is used to process all DynamoDB stream updates. This function will check for TTL events and remove connections for sessions that expire.
 
+## Requirements
+1. <a href="https://maven.apache.org/">Apache Maven</a> 3.8.1
+2. <a href="https://aws.amazon.com/cdk/">AWS CDK</a> 1.125.0 or later installed
+
+## Setup
+1. git clone this repository
+2. In the root directory of the repository execute the command ```cdk deploy```
+3. Review the permissions and follow prompts
+4. After deployment the CDK will list the outputs as follows:
+   1. APIGatewayWebsocketRateLimitStack.SampleClient
+      1. The URI points to the sample web page described below
+      2. https://{httpApiID}.execute-api.{region}.amazonaws.com/production/SampleClient
+   2. APIGatewayWebsocketRateLimitStack.SessionURL
+      1. This URI points to the endpoint which is able to create sessions 
+      2. https://{httpApiID}.execute-api.{region}.amazonaws.com/production/session
+   3. APIGatewayWebsocketRateLimitStack.TenantURL
+      1. This URI is only exposed for demo purposes and is used to get a list of the current tenant Ids
+      2. https://{httpApiID}.execute-api.{region}.amazonaws.com/production/tenant
+   4. APIGatewayWebsocketRateLimitStack.WebSocketURL
+      1. This URI is the websocket connection endpoint
+      2. wss://{websocketApiID}.execute-api.{region}.amazonaws.com/production
+
+## Sample Web Page
+<img alt="Sample Web Page" src="./images/sample.png" />
+
+The sample can be used to test the various aspects of the system. The following steps are the happy path:
+1. Open the web page given as the output **APIGatewayWebsocketRateLimitStack.SampleClient** from the CDK deployment
+2. Wait for the tenant Ids to load
+3. Click the **Create Session** button to create a new session
+4. Click the **Connect**
+5. Once connected try both the **Send** and **Send Queue** buttons
+   1. The **Send** button will send via the **default** route which uses the pooled execution model
+   2. The **Send Queue** button will send via the **PerTenantSQS** route which uses the siloed SQS FIFO queue execution model
+6. Click the **Disconnect** button to close the connection
+7. Click the **Delete Session** button to remove the current session
+
+## Cleanup
+1. In the root directory of the repository execute the command ```cdk destroy```
+
+## Sample Web Page
+This aws-sample comes with a sample web page to evaluate the system. Once the cdk package is deployed the outputs will list the following:
+1. The sample URI
+
 ## Silo vs Pooled Message processing
 SQS queues are used in silo mode and the API gateway will use the authorization contexts tenantId to determine the queue name per tenant. Each SQS queue has a linked Lambda function to process messages and send a reply response.
 Basic API Gateway to Lambda execution is used for pooled mode. Each message received by the API gateway on the default route will invoke the reply Lambda. The Lambda will use the authorization context to handle tenant isolation.
