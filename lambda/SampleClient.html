@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Demo Client</title>
+</head>
+<body>
+
+<div id="setup">
+    <fieldset>
+        <legend>Settings</legend>
+        <table>
+            <tr>
+                <td>Tenant</td>
+                <td>
+                    <select id="tenantId"></select>
+                </td>
+                <td>Session</td>
+                <td>
+                    <input id="sessionId" type="text" placeholder="Session ID" size="40" value="" />
+                </td>
+            </tr>
+            <tr>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td>
+                    <button id="createSession">Create Session</button>
+                    <button id="deleteSession">Delete Session</button>
+                </td>
+            </tr>
+        </table>
+    </fieldset>
+</div>
+<fieldset>
+    <legend>Connection</legend>
+    <div id="chat">
+        <table>
+            <tr>
+                <td style="vertical-align: top;">Message</td>
+                <td>
+                    <textarea rows="3" cols="80" id="message" placeholder="Message">Test message</textarea>
+                </td>
+            </tr>
+            <tr>
+                <td></td>
+                <td>
+                    <button id="connect">Connect</button><button id="send">Send</button><button id="sendQueue">Send Queue</button>
+                </td>
+            </tr>
+        </table>
+</fieldset>
+</div>
+<fieldset>
+    <legend>Log</legend>
+    <table>
+        <tr>
+            <td><button id="clearLog">Clear Log</button></td>
+        </tr>
+    </table>
+    <ul id="chatLog"></ul>
+</fieldset>
+</body>
+<script src="SampleClient?page=SampleClient.js"></script>
+</html>
