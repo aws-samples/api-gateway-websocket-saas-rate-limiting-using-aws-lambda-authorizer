@@ -14,7 +14,6 @@ const chatLog = document.querySelector("#chatLog");
 const sessionUrl = "{{sessionUrl}}";
 const tenantUrl = "{{tenantUrl}}";
 const websocketUrl = "{{WssUrl}}";
-let messageDeduplicationId = 0;
 let connection;
 
 function addCommunication(input, event) {
@@ -174,28 +173,21 @@ connectButton.addEventListener("click", () => {
     }
 });
 
-sendButton.addEventListener("click", () => {
+function sendMesssage(sqs) {
     let data = {};
     data.message = message.value;
+    if (sqs) {
+        data.action = "PerTenantSQS";
+    }
     let sendData = JSON.stringify(data);
     connection.send(sendData);
     addCommunication("Sent: " + sendData);
+}
+
+sendButton.addEventListener("click", () => {
+    sendMesssage(false);
 });
 
 sendQueueButton.addEventListener("click", () => {
-    let data = {};
-    data.message = message.value;
-    let dupId = getCookie("tenant:" + tenantId.value + ":session:" + sessionId.value + ":messageDeduplicationId");
-    if (dupId) {
-        messageDeduplicationId = parseInt(dupId, 10);
-    } else {
-        messageDeduplicationId = 0;
-    }
-    data.messageDeduplicationId = messageDeduplicationId;
-    messageDeduplicationId = messageDeduplicationId + 1;
-    setCookie("tenant:" + tenantId.value + ":session:" + sessionId.value + ":messageDeduplicationId", messageDeduplicationId, 1);
-    data.action = "PerTenantSQS";
-    let sendData = JSON.stringify(data);
-    connection.send(sendData);
-    addCommunication("Sent: " + sendData);
+    sendMesssage(true);
 });

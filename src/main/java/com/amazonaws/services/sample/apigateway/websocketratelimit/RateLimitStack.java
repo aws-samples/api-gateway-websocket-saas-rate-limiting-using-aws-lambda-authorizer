@@ -231,7 +231,7 @@ public class RateLimitStack extends Stack {
                         "context.authorizer.tenantId"))
                 .requestTemplates(Map.of(
                         "application/json",
-                        "Action=SendMessage&MessageGroupId=$context.authorizer.sessionId&MessageDeduplicationId=$input.path('$.messageDeduplicationId')&MessageAttribute.1.Name=tenantId&MessageAttribute.1.Value.StringValue=$context.authorizer.tenantId&MessageAttribute.1.Value.DataType=String&MessageAttribute.2.Name=sessionId&MessageAttribute.2.Value.StringValue=$context.authorizer.sessionId&MessageAttribute.2.Value.DataType=String&MessageAttribute.3.Name=connectionId&MessageAttribute.3.Value.StringValue=$context.connectionId&MessageAttribute.3.Value.DataType=String&MessageBody=$input.json('$')"
+                        "Action=SendMessage&MessageGroupId=$context.authorizer.sessionId&MessageDeduplicationId=$context.requestId&MessageAttribute.1.Name=tenantId&MessageAttribute.1.Value.StringValue=$context.authorizer.tenantId&MessageAttribute.1.Value.DataType=String&MessageAttribute.2.Name=sessionId&MessageAttribute.2.Value.StringValue=$context.authorizer.sessionId&MessageAttribute.2.Value.DataType=String&MessageAttribute.3.Name=connectionId&MessageAttribute.3.Value.StringValue=$context.connectionId&MessageAttribute.3.Value.DataType=String&MessageBody=$input.json('$')"
                 ))
                 .build();
         CfnRoute.Builder.create(this, "PerTenantQueueRoute")
