@@ -30,11 +30,7 @@ exports.handler = async function(event, context) {
 
         // Check if we are over the number of connections allow per tenant
         response = await dynamo.get({ "TableName": process.env.LimitTableName, "Key": { key: tenantId } }).promise();
-        if (!response || !response.Item) {
-            console.log("Tenant " + tenantId + " not found");
-            return tenant.generateDeny(event.methodArn, event);
-        }
-        if (response.Item.itemCount && response.Item.itemCount >= tenantConnections) {
+        if (response && response.Item && response.Item.itemCount && response.Item.itemCount >= tenantConnections) {
             console.log("Tenant " + tenantId + " over tenant total limit");
             return tenant.generateThrottled(event.methodArn, event);
         }
@@ -42,7 +38,7 @@ exports.handler = async function(event, context) {
         // Check if we are over the number of connections allowed per tenant/session
         response = await dynamo.get({ "TableName": process.env.SessionTableName, "Key": { tenantId: tenantId, sessionId: sessionId } }).promise();
         if (!response || !response.Item) {
-            console.log("Tenant: " + tenantId + " Session: " + sessionId + " not found");
+            console.log("Tenant: " + tenantId + " Session: " + sessionId + " not found: " + JSON.stringify(response, null, 2));
             return tenant.generateDeny(event.methodArn, event);
         }
         if (response && response.Item && response.Item.connectionIds && response.Item.connectionIds.values.length >= connectionsPerSession) {
