@@ -8,6 +8,10 @@ exports.handler = async function(event, context) {
     //console.log('Received event:', JSON.stringify(event, null, 2));
 
     if (event.requestContext.routeKey == '$connect') {
+        // check for the throttled flag from the authorizer call and return the proper 429 throttle code
+        if (event.requestContext.authorizer.throttled == "true") {
+            return { statusCode: 429 };
+        }
         let dynamo = tenant.createDynamoDBClient(event);
         let tenantId = tenant.getTenantId(event);
         let sessionId = tenant.getSessionId(event);
