@@ -58,7 +58,6 @@ exports.handler = async (event, context) => {
                     },
                     "ReturnValues": "ALL_OLD"
                 };
-                console.log("UpdateParams: ", JSON.stringify(updateParams, null, 2));
                 let results = await dynamo.update(updateParams).promise();
                 let connectionIds = results.Attributes.connectionIds.values;
                 for (var x = 0; x < connectionIds.length; x++) {
