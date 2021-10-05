@@ -69,6 +69,10 @@ exports.seconds_since_epoch = function() {
     return Math.floor(Date.now() / 1000);
 }
 
+exports.createMessageThrottleResponse = function(connectionId, requestId) {
+    return JSON.stringify({ message: "Too Many Requests", connectionId: connectionId, requestId: requestId });
+}
+
 let generatePolicy = function(effect, resource, event, tenantSettings) {
     // Required output:
     let authResponse = {};

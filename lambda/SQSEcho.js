@@ -45,8 +45,7 @@ exports.handler = async (event, context) => {
                 let updateResponse = await dynamo.update(updateParams).promise();
                 if (!updateResponse || updateResponse.Attributes.itemCount > recordEvent.requestContext.authorizer.messagesPerMinute) {
                     console.log("Tenant: " + tenantId + " message rate limit hit");
-                    let packet = { message: "Too Many Requests", connectionId: connectionId, requestId: requestId };
-                    await apig.postToConnection({ ConnectionId: connectionId, Data: JSON.stringify(packet) }).promise();
+                    await apig.postToConnection({ ConnectionId: connectionId, Data: tenant.createMessageThrottleResponse(connectionId, requestId) }).promise();
                     continue;
                 }
 

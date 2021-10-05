@@ -28,8 +28,7 @@ exports.handler = async function(event, context) {
             let updateResponse = await dynamo.update(updateParams).promise();
             if (!updateResponse || updateResponse.Attributes.itemCount > event.requestContext.authorizer.messagesPerMinute) {
                 console.log("Tenant: " + tenantId + " message rate limit hit");
-                let packet = { message: "Too Many Requests", connectionId: connectionId, requestId: requestId };
-                await apig.postToConnection({ ConnectionId: connectionId, Data: JSON.stringify(packet) }).promise();
+                await apig.postToConnection({ ConnectionId: connectionId, Data: tenant.createMessageThrottleResponse(connectionId, requestId) }).promise();
                 return {statusCode: 429};
             }
 
@@ -53,7 +52,7 @@ exports.handler = async function(event, context) {
                 await apig.postToConnection({ ConnectionId: connectionIds[x], Data: `Echo Tenant: ${tenantId} Session: ${sessionId}: ${body}` }).promise();
             }
         } catch (err) {
-            console.log("Error: " + JSON.stringify(err, null, 2));
+            console.log("Error: " + JSON.stringify(err));
             return {statusCode: 1011}; // return server error code
         }
     } else {
