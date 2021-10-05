@@ -216,6 +216,21 @@ public class RateLimitStack extends Stack {
                                         .build()))
                         .build()))
                 .build();
+        String requestTemplateItem = "";
+        requestTemplateItem += "Action=SendMessage";
+        requestTemplateItem += "&MessageGroupId=$context.authorizer.sessionId";
+        requestTemplateItem += "&MessageDeduplicationId=$context.requestId";
+        requestTemplateItem += "&MessageAttribute.1.Name=tenantId&MessageAttribute.1.Value.StringValue=$context.authorizer.tenantId&MessageAttribute.1.Value.DataType=String";
+        requestTemplateItem += "&MessageAttribute.2.Name=sessionId&MessageAttribute.2.Value.StringValue=$context.authorizer.sessionId&MessageAttribute.2.Value.DataType=String";
+        requestTemplateItem += "&MessageAttribute.3.Name=connectionId&MessageAttribute.3.Value.StringValue=$context.connectionId&MessageAttribute.3.Value.DataType=String";
+        requestTemplateItem += "&MessageAttribute.4.Name=requestId&MessageAttribute.4.Value.StringValue=$context.requestId&MessageAttribute.4.Value.DataType=String";
+        requestTemplateItem += "&MessageAttribute.5.Name=sessionPerMinute&MessageAttribute.5.Value.StringValue=$context.authorizer.sessionPerMinute&MessageAttribute.5.Value.DataType=String";
+        requestTemplateItem += "&MessageAttribute.6.Name=tenantPerMinute&MessageAttribute.6.Value.StringValue=$context.authorizer.tenantPerMinute&MessageAttribute.6.Value.DataType=String";
+        requestTemplateItem += "&MessageAttribute.7.Name=connectionsPerSession&MessageAttribute.7.Value.StringValue=$context.authorizer.connectionsPerSession&MessageAttribute.7.Value.DataType=String";
+        requestTemplateItem += "&MessageAttribute.8.Name=sessionTTL&MessageAttribute.8.Value.StringValue=$context.authorizer.sessionTTL&MessageAttribute.8.Value.DataType=String";
+        requestTemplateItem += "&MessageAttribute.9.Name=tenantConnections&MessageAttribute.9.Value.StringValue=$context.authorizer.tenantConnections&MessageAttribute.9.Value.DataType=String";
+        requestTemplateItem += "&MessageAttribute.10.Name=messagesPerMinute&MessageAttribute.10.Value.StringValue=$context.authorizer.messagesPerMinute&MessageAttribute.10.Value.DataType=String";
+        requestTemplateItem += "&MessageBody=$input.json('$')";
         CfnIntegration integration = CfnIntegration.Builder.create(this, "Integration")
                 .apiId(api.getApiId())
                 .connectionType("INTERNET")
@@ -231,7 +246,7 @@ public class RateLimitStack extends Stack {
                         "context.authorizer.tenantId"))
                 .requestTemplates(Map.of(
                         "application/json",
-                        "Action=SendMessage&MessageGroupId=$context.authorizer.sessionId&MessageDeduplicationId=$context.requestId&MessageAttribute.1.Name=tenantId&MessageAttribute.1.Value.StringValue=$context.authorizer.tenantId&MessageAttribute.1.Value.DataType=String&MessageAttribute.2.Name=sessionId&MessageAttribute.2.Value.StringValue=$context.authorizer.sessionId&MessageAttribute.2.Value.DataType=String&MessageAttribute.3.Name=connectionId&MessageAttribute.3.Value.StringValue=$context.connectionId&MessageAttribute.3.Value.DataType=String&MessageBody=$input.json('$')"
+                        requestTemplateItem
                 ))
                 .build();
         CfnRoute.Builder.create(this, "PerTenantQueueRoute")
@@ -381,12 +396,12 @@ public class RateLimitStack extends Stack {
     }
 
     private void addSampleTenantIds() {
-        addSampleTenantId("a5a82459-3f18-4ecd-89a6-2d13af314751", "60", "5", "2", "10", 1);
-        addSampleTenantId("9175b21a-332a-4a7a-a72d-9184ad7186c0", "120", "10", "5", "100", 2);
-        addSampleTenantId("31a2e8c6-1826-11ec-9621-0242ac130002", "180", "30", "10", "1000", 3);
+        addSampleTenantId("a5a82459-3f18-4ecd-89a6-2d13af314751", "60", "5", "2", "10", "200", "60", 1);
+        addSampleTenantId("9175b21a-332a-4a7a-a72d-9184ad7186c0", "120", "10", "5", "100", "300","600",2);
+        addSampleTenantId("31a2e8c6-1826-11ec-9621-0242ac130002", "180", "30", "10", "1000", "300","6000",3);
     }
 
-    private void addSampleTenantId(String tenantId, String tenantPerMinute, String sessionPerMinute, String connectionsPerSession, String tenantConnections, int index) {
+    private void addSampleTenantId(String tenantId, String tenantPerMinute, String sessionPerMinute, String connectionsPerSession, String tenantConnections, String sessionTTL, String messagesPerMinute, int index) {
         AwsSdkCall initializeData = AwsSdkCall.builder()
                 .service("DynamoDB")
                 .action("putItem")
@@ -398,7 +413,9 @@ public class RateLimitStack extends Stack {
                                 Map.entry("tenantPerMinute", Map.of("N", tenantPerMinute)),
                                 Map.entry("sessionPerMinute", Map.of("N", sessionPerMinute)),
                                 Map.entry("connectionsPerSession", Map.of("N", connectionsPerSession)),
-                                Map.entry("tenantConnections", Map.of("N", tenantConnections))
+                                Map.entry("tenantConnections", Map.of("N", tenantConnections)),
+                                Map.entry("sessionTTL", Map.of("N", sessionTTL)),
+                                Map.entry("messagesPerMinute", Map.of("N", messagesPerMinute))
                         )),
                         Map.entry("ConditionExpression", "attribute_not_exists(tenantId)")
                 ))

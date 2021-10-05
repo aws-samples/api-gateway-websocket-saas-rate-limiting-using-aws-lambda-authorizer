@@ -2,9 +2,6 @@
 // SPDX-License-Identifier: MIT-0
 
 const tenant = require("./Tenant.js");
-const TTL = 60 * 5; // Set TTL for 5 mins
-function seconds_since_epoch() { return Math.floor(Date.now() / 1000) }
-const secondsPerMinute = 60;
 
 exports.handler = async function(event, context) {
     //console.log('Received event:', JSON.stringify(event, null, 2));
@@ -29,14 +26,14 @@ exports.handler = async function(event, context) {
             }
 
             // Update and check the total number of connections per minute per tenant
-            var epoch = seconds_since_epoch();
-            let currentMin = (Math.trunc(epoch / secondsPerMinute) * secondsPerMinute);
+            var epoch = tenant.seconds_since_epoch();
+            let currentMin = (Math.trunc(epoch / tenant.secondsPerMinute) * tenant.secondsPerMinute);
             let key = tenantId + ":minute:" + currentMin;
             var updateParams = {
                 "TableName": process.env.LimitTableName,
                 "Key": { key: key },
                 "UpdateExpression": "set itemCount = if_not_exists(itemCount, :zero) + :inc, itemTTL = :ttl",
-                "ExpressionAttributeValues": { ":ttl": currentMin + secondsPerMinute + 1, ":inc": 1, ":zero": 0 },
+                "ExpressionAttributeValues": { ":ttl": currentMin + tenant.secondsPerMinute + 1, ":inc": 1, ":zero": 0 },
                 "ReturnValues": "UPDATED_NEW"
             };
             let updateResponse = await dynamo.update(updateParams).promise();
@@ -51,7 +48,7 @@ exports.handler = async function(event, context) {
                 "TableName": process.env.LimitTableName,
                 "Key": { key: key },
                 "UpdateExpression": "set itemCount = if_not_exists(itemCount, :zero) + :inc, itemTTL = :ttl",
-                "ExpressionAttributeValues": { ":ttl": currentMin + secondsPerMinute + 1, ":inc": 1, ":zero": 0 },
+                "ExpressionAttributeValues": { ":ttl": currentMin + tenant.secondsPerMinute + 1, ":inc": 1, ":zero": 0 },
                 "ReturnValues": "UPDATED_NEW"
             };
             updateResponse = await dynamo.update(updateParams).promise();
@@ -66,7 +63,7 @@ exports.handler = async function(event, context) {
                 "Key": { tenantId: tenantId, sessionId: sessionId },
                 "UpdateExpression": "set sessionTTL = :ttl ADD connectionIds :c",
                 "ExpressionAttributeValues": {
-                    ":ttl": (Math.floor(+new Date() / 1000) + TTL),
+                    ":ttl": (Math.floor(+new Date() / 1000) + event.requestContext.authorizer.sessionTTL),
                     ":c": dynamo.createSet([event.requestContext.connectionId])
                 },
                 "ReturnValues": "NONE"

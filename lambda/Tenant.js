@@ -3,6 +3,8 @@
 
 const AWS = require("aws-sdk");
 
+exports.secondsPerMinute = 60;
+
 exports.handler = async(event, context) => {
     //console.log('Received event:', JSON.stringify(event, null, 2));
 
@@ -63,6 +65,10 @@ exports.createDynamoDBClient = function(event) {
     }));
 }
 
+exports.seconds_since_epoch = function() {
+    return Math.floor(Date.now() / 1000);
+}
+
 let generatePolicy = function(effect, resource, event, tenantSettings) {
     // Required output:
     let authResponse = {};
@@ -83,7 +89,9 @@ let generatePolicy = function(effect, resource, event, tenantSettings) {
         sessionPerMinute: tenantSettings ? tenantSettings.sessionPerMinute : -1,
         tenantPerMinute: tenantSettings ? tenantSettings.tenantPerMinute : -1,
         tenantConnections: tenantSettings ? tenantSettings.tenantConnections : -1,
-        connectionsPerSession: tenantSettings ? tenantSettings.connectionsPerSession : -1
+        connectionsPerSession: tenantSettings ? tenantSettings.connectionsPerSession : -1,
+        sessionTTL: tenantSettings ? tenantSettings.sessionTTL : -1,
+        messagesPerMinute: tenantSettings ? tenantSettings.messagesPerMinute : -1
     };
     return authResponse;
 }

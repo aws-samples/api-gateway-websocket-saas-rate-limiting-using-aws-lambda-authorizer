@@ -4,22 +4,41 @@
 const AWS = require("aws-sdk");
 const tenant = require("./Tenant.js");
 const apig = new AWS.ApiGatewayManagementApi({ endpoint: process.env.ApiGatewayEndpoint });
-const TTL = 60 * 5; // Set TTL for 5 mins
 
 exports.handler = async function(event, context) {
     //console.log('Received event:', JSON.stringify(event, null, 2));
-    const {body, requestContext: {connectionId, routeKey}} = event;
+    const {body, requestContext: {connectionId, routeKey, requestId}} = event;
     if (routeKey == '$default') {
         try {
-            let dynamo = tenant.createDynamoDBClient(event);
             let tenantId = tenant.getTenantId(event);
             let sessionId = tenant.getSessionId(event);
+            let dynamo = tenant.createDynamoDBClient(event);
+
+            // Update and check the total number of messages per minute per tenant
+            var epoch = tenant.seconds_since_epoch();
+            let currentMin = (Math.trunc(epoch / tenant.secondsPerMinute) * tenant.secondsPerMinute);
+            let key = tenantId + ":minutemsg:" + currentMin;
+            var updateParams = {
+                "TableName": process.env.LimitTableName,
+                "Key": { key: key },
+                "UpdateExpression": "set itemCount = if_not_exists(itemCount, :zero) + :inc, itemTTL = :ttl",
+                "ExpressionAttributeValues": { ":ttl": currentMin + tenant.secondsPerMinute + 1, ":inc": 1, ":zero": 0 },
+                "ReturnValues": "UPDATED_NEW"
+            };
+            let updateResponse = await dynamo.update(updateParams).promise();
+            if (!updateResponse || updateResponse.Attributes.itemCount > event.requestContext.authorizer.messagesPerMinute) {
+                console.log("Tenant: " + tenantId + " message rate limit hit");
+                let packet = { message: "Too Many Requests", connectionId: connectionId, requestId: requestId };
+                await apig.postToConnection({ ConnectionId: connectionId, Data: JSON.stringify(packet) }).promise();
+                return {statusCode: 429};
+            }
+
             var updateParams = {
                 "TableName": process.env.SessionTableName,
                 "Key": {tenantId: tenantId, sessionId: sessionId},
                 "UpdateExpression": "set sessionTTL = :ttl",
                 "ExpressionAttributeValues": {
-                    ":ttl": (Math.floor(+new Date() / 1000) + TTL)
+                    ":ttl": (Math.floor(+new Date() / 1000) + event.requestContext.authorizer.sessionTTL)
                 },
                 "ReturnValues": "ALL_OLD"
             };
@@ -31,13 +50,10 @@ exports.handler = async function(event, context) {
                 }
             }
             for (var x = 0; x < connectionIds.length; x++) {
-                await apig.postToConnection({
-                    ConnectionId: connectionIds[x],
-                    Data: `Echo Tenant: ${tenantId} Session: ${sessionId}: ${body}`
-                }).promise();
+                await apig.postToConnection({ ConnectionId: connectionIds[x], Data: `Echo Tenant: ${tenantId} Session: ${sessionId}: ${body}` }).promise();
             }
         } catch (err) {
-            console.log("Error: " + JSON.stringify(err));
+            console.log("Error: " + JSON.stringify(err, null, 2));
             return {statusCode: 1011}; // return server error code
         }
     } else {
