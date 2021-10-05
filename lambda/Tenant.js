@@ -63,7 +63,7 @@ exports.createDynamoDBClient = function(event) {
     }));
 }
 
-let generatePolicy = function(effect, resource, event, throttled) {
+let generatePolicy = function(effect, resource, event, tenantSettings) {
     // Required output:
     let authResponse = {};
     authResponse.principalId = 'anonymous';
@@ -80,10 +80,12 @@ let generatePolicy = function(effect, resource, event, throttled) {
     authResponse.context = {
         tenantId: exports.getTenantId(event),
         sessionId: exports.getSessionId(event),
-        throttled: throttled
+        sessionPerMinute: tenantSettings ? tenantSettings.sessionPerMinute : -1,
+        tenantPerMinute: tenantSettings ? tenantSettings.tenantPerMinute : -1,
+        tenantConnections: tenantSettings ? tenantSettings.tenantConnections : -1,
+        connectionsPerSession: tenantSettings ? tenantSettings.connectionsPerSession : -1
     };
     return authResponse;
 }
-exports.generateAllow = function(resource, event) { return generatePolicy('Allow', resource, event, false); }
-exports.generateThrottled = function(resource, event) { return generatePolicy('Allow', resource, event, true); }
-exports.generateDeny = function(resource, event) { return generatePolicy('Deny', resource, event, false); }
+exports.generateAllow = function(resource, event, tenantSettings) { return generatePolicy('Allow', resource, event, tenantSettings); }
+exports.generateDeny = function(resource, event) { return generatePolicy('Deny', resource, event, null); }

@@ -16,21 +16,31 @@ An Amazon SQS queue and AWS Lambda function is create for each tenant to allow f
 2. The session AWS Lambda will create a session and store it in the DynamoDB with a TTL (Time To Live) value specified which will remove all session connections if no communication is sent or received over a specific period of time.
 3. Once a session is created the client will initiate a websocket connection to the Amazon AWS API Gateway websocket endpoint.
 4. An AWS Lambda function is used as the Authorizer for the websocket connection. The authorizer will do the following:
-    1. Add the tenantId and sessionId to the authorizer context
-    2. Validate the tenant exists
-    3. Validate the session exists
-    4. Check if the system is over the total number of <b>connections</b> allowed for this <b>tenant</b>
-    5. Check if the system is over the total number of <b>connections</b> allowed for this <b>session</b>
-    6. Check if the system is over the total number of <b>connections per minute</b> allowed for the <b>tenant</b>
-    7. Check if the system is over the total number of <b>connections per minute</b> allowed for the <b>session</b>
-5. An AWS Lambda function is used during connect to update the sessions connectionId set and increment the total number of connections for the tenant. This also updates the session TTL.
+   <ol type="a" style="list-style-type: lower-alpha;">
+      <li>Validate the tenant exists</li>
+      <li>Validate the session exists</li>
+      <li>Add the tenantId, sessionId, and tenant settings to the authorizer context</li>
+   </ol>
+5. An AWS Lambda function is used during connect to do the following:
+   <ol type="a" style="list-style-type: lower-alpha;">
+      <li>Check if the system is over the total number of <b>connections</b> allowed for this <b>tenant</b></li>
+      <li>Check if the system is over the total number of <b>connections</b> allowed for this <b>session</b></li>
+      <li>Check if the system is over the total number of <b>connections per minute</b> allowed for the <b>tenant</b></li>
+      <li>Check if the system is over the total number of <b>connections per minute</b> allowed for the <b>session</b></li>
+      <li>Add the connectionId to the sessions connectionId set and update the session Time To Live (TTL)</li>
+      <li>Increment the total number of connections for the tenant</li>
+   </ol>
 6. Messages are processed as either silo or pooled depending on the route selected 
    <ol type="a" style="list-style-type: lower-alpha;">
      <li>To process message per tenant in silo mode with FIFO, messages are sent to the tenants corresponding SQS FIFO queue with the tenant, session, and connection ids as metadata.</li>
      <li>An AWS Lambda function per tenant is used to read messages from the SQS FIFO queue with session based grouping to keep messages in order.</li>
      <li>An AWS Lambda function is invoked for each message received by a websocket connection. The Lambda will respond by echoing the message back to the sender. The Lambda will also send the inbound message AND the response to all other connectionIds for the same session. Each inbound message will also update the session TTL.</li>
    </ol>
-7. An AWS Lambda function is used during disconnect to remove the connectionId from the sessions connectionId set and also decrement the total number of connections for the tenant.
+7. An AWS Lambda function is used during disconnect to do the following:
+   <ol type="a" style="list-style-type: lower-alpha;">
+     <li>Remove the connectionId from the sessions connectionId set</li>
+     <li>Decrement the total number of connections for the tenant</li>
+   </ol>
 8. Once all connections are closed the client will send an HTTP DELETE request to the Amazon API Gateway HTTP endpoint to remove the session.
 9. An AWS Lambda function is used to process all DynamoDB stream updates. This function will check for TTL events and remove connections for sessions that expire.
 
