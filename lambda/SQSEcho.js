@@ -39,7 +39,7 @@ exports.handler = async (event, context) => {
                     continue;
                 }
 
-                var updateParams = {
+                let updateParams = {
                     "TableName": process.env.SessionTableName,
                     "Key": { tenantId: tenantId, sessionId: sessionId },
                     "UpdateExpression": "set sessionTTL = :ttl",
@@ -50,20 +50,17 @@ exports.handler = async (event, context) => {
                 };
                 let results = await dynamo.update(updateParams).promise();
                 let connectionIds = results.Attributes.connectionIds.values;
-                for (var x = 0; x < connectionIds.length; x++) {
+                for (let x = 0; x < connectionIds.length; x++) {
                     if (connectionIds[x] != connectionId) {
                         await apig.postToConnection({ ConnectionId: connectionIds[x], Data: `${body}` }).promise();
                     }
                 }
-                let response = {
-
-                };
-                for (var x = 0; x < connectionIds.length; x++) {
+                for (let x = 0; x < connectionIds.length; x++) {
                     await apig.postToConnection({ ConnectionId: connectionIds[x], Data: common.createEchoResponse(tenantId, sessionId, connectionIds[x], body, queueName) }).promise();
                 }
             }
             catch (err) {
-                console.log("Error: " + JSON.stringify(err, null, 2));
+                console.error(err);
                 return { statusCode: 1011 }; // return server error code
             }
         }
