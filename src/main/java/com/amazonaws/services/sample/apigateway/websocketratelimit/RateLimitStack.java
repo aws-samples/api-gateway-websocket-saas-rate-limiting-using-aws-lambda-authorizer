@@ -236,6 +236,7 @@ public class RateLimitStack extends Stack {
                 .connectionType("INTERNET")
                 .integrationType("AWS")
                 .credentialsArn(apiGatewayWebsocketSQSRole.getRoleArn())
+                .templateSelectionExpression("\\$default")
                 .integrationMethod("POST")
                 .integrationUri("arn:aws:apigateway:" + getRegion() + ":sqs:path/" + getAccount() + "/tenant-{queue}.fifo")
                 .passthroughBehavior("NEVER")
@@ -245,7 +246,7 @@ public class RateLimitStack extends Stack {
                         "integration.request.path.queue",
                         "context.authorizer.tenantId"))
                 .requestTemplates(Map.of(
-                        "application/json",
+                        "$default",
                         requestTemplateItem
                 ))
                 .build();
