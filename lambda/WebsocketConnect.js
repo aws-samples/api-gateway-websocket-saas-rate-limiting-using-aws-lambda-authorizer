@@ -1,15 +1,15 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT-0
 
-const tenant = require("./Tenant.js");
+const common = require("./Common.js");
 
 exports.handler = async function(event, context) {
     //console.log('Received event:', JSON.stringify(event, null, 2));
 
     if (event.requestContext.routeKey == '$connect') {
-        let dynamo = tenant.createDynamoDBClient(event);
-        let tenantId = tenant.getTenantId(event);
-        let sessionId = tenant.getSessionId(event);
+        let dynamo = common.createDynamoDBClient(event);
+        let tenantId = common.getTenantId(event);
+        let sessionId = common.getSessionId(event);
         try {
             // Check if we are over the number of connections allowed per tenant
             let response = await dynamo.get({ "TableName": process.env.LimitTableName, "Key": { key: tenantId } }).promise();
@@ -26,14 +26,14 @@ exports.handler = async function(event, context) {
             }
 
             // Update and check the total number of connections per minute per tenant
-            var epoch = tenant.seconds_since_epoch();
-            let currentMin = (Math.trunc(epoch / tenant.secondsPerMinute) * tenant.secondsPerMinute);
+            var epoch = common.seconds_since_epoch();
+            let currentMin = (Math.trunc(epoch / common.secondsPerMinute) * common.secondsPerMinute);
             let key = tenantId + ":minute:" + currentMin;
             var updateParams = {
                 "TableName": process.env.LimitTableName,
                 "Key": { key: key },
                 "UpdateExpression": "set itemCount = if_not_exists(itemCount, :zero) + :inc, itemTTL = :ttl",
-                "ExpressionAttributeValues": { ":ttl": currentMin + tenant.secondsPerMinute + 1, ":inc": 1, ":zero": 0 },
+                "ExpressionAttributeValues": { ":ttl": currentMin + common.secondsPerMinute + 1, ":inc": 1, ":zero": 0 },
                 "ReturnValues": "UPDATED_NEW"
             };
             let updateResponse = await dynamo.update(updateParams).promise();
@@ -48,7 +48,7 @@ exports.handler = async function(event, context) {
                 "TableName": process.env.LimitTableName,
                 "Key": { key: key },
                 "UpdateExpression": "set itemCount = if_not_exists(itemCount, :zero) + :inc, itemTTL = :ttl",
-                "ExpressionAttributeValues": { ":ttl": currentMin + tenant.secondsPerMinute + 1, ":inc": 1, ":zero": 0 },
+                "ExpressionAttributeValues": { ":ttl": currentMin + common.secondsPerMinute + 1, ":inc": 1, ":zero": 0 },
                 "ReturnValues": "UPDATED_NEW"
             };
             updateResponse = await dynamo.update(updateParams).promise();

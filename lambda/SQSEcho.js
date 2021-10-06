@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT-0
 
 const AWS = require("aws-sdk");
-const tenant = require("./Tenant.js");
+const common = require("./Common.js");
 const apig = new AWS.ApiGatewayManagementApi({ endpoint: process.env.ApiGatewayEndpoint });
 const TTL = 60 * 5; // Set TTL for 5 mins
 
@@ -28,24 +28,24 @@ exports.handler = async (event, context) => {
                 let body = recordEvent.body;
                 let connectionId = recordEvent.connectionId;
                 let requestId = recordEvent.requestId;
-                let tenantId = tenant.getTenantId(recordEvent);
-                let sessionId = tenant.getSessionId(recordEvent);
-                let dynamo = tenant.createDynamoDBClient(recordEvent);
+                let tenantId = common.getTenantId(recordEvent);
+                let sessionId = common.getSessionId(recordEvent);
+                let dynamo = common.createDynamoDBClient(recordEvent);
                 // Update and check the total number of messages per minute per tenant
-                var epoch = tenant.seconds_since_epoch();
-                let currentMin = (Math.trunc(epoch / tenant.secondsPerMinute) * tenant.secondsPerMinute);
+                var epoch = common.seconds_since_epoch();
+                let currentMin = (Math.trunc(epoch / common.secondsPerMinute) * common.secondsPerMinute);
                 let key = tenantId + ":minutemsg:" + currentMin;
                 var updateParams = {
                     "TableName": process.env.LimitTableName,
                     "Key": { key: key },
                     "UpdateExpression": "set itemCount = if_not_exists(itemCount, :zero) + :inc, itemTTL = :ttl",
-                    "ExpressionAttributeValues": { ":ttl": currentMin + tenant.secondsPerMinute + 1, ":inc": 1, ":zero": 0 },
+                    "ExpressionAttributeValues": { ":ttl": currentMin + common.secondsPerMinute + 1, ":inc": 1, ":zero": 0 },
                     "ReturnValues": "UPDATED_NEW"
                 };
                 let updateResponse = await dynamo.update(updateParams).promise();
                 if (!updateResponse || updateResponse.Attributes.itemCount > recordEvent.requestContext.authorizer.messagesPerMinute) {
                     console.log("Tenant: " + tenantId + " message rate limit hit");
-                    await apig.postToConnection({ ConnectionId: connectionId, Data: tenant.createMessageThrottleResponse(connectionId, requestId) }).promise();
+                    await apig.postToConnection({ ConnectionId: connectionId, Data: common.createMessageThrottleResponse(connectionId, requestId) }).promise();
                     continue;
                 }
 

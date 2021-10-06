@@ -1,20 +1,20 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT-0
 
-const tenant = require("./Tenant.js");
+const common = require("./Common.js");
 const TTL = 60 * 5; // Set TTL for 5 mins
 
 exports.handler = async(event, context) => {
     //console.log('Received event:', JSON.stringify(event, null, 2));
 
     try {
-        let tenantId = tenant.getTenantId(event);
-        let sessionId = tenant.getSessionId(event);
+        let tenantId = common.getTenantId(event);
+        let sessionId = common.getSessionId(event);
         if (!tenantId || !sessionId) {
             return { statusCode: 400, headers: { "Content-Type": "application/json" }, body: JSON.stringify("Invalid request") };
         }
 
-        let dynamo = tenant.createDynamoDBClient(event);
+        let dynamo = common.createDynamoDBClient(event);
         // Check for a valid tenantId
         let response = await dynamo.get({ "TableName": process.env.TenantTableName, "Key": { tenantId: tenantId } }).promise();
         if (!response || !response.Item || !response.Item.tenantId) {

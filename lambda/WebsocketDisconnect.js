@@ -1,15 +1,15 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT-0
 
-const tenant = require("./Tenant.js");
+const common = require("./Common.js");
 
 exports.handler = async function(event, context) {
     //console.log('Received event:', JSON.stringify(event, null, 2));
 
     if (event.requestContext.routeKey == '$disconnect') {
-        let dynamo = tenant.createDynamoDBClient(event);
-        let tenantId = tenant.getTenantId(event);
-        let sessionId = tenant.getSessionId(event);
+        let dynamo = common.createDynamoDBClient(event);
+        let tenantId = common.getTenantId(event);
+        let sessionId = common.getSessionId(event);
         var deleteConnectIdParams = {
             "TableName": process.env.SessionTableName,
             "Key": { tenantId: tenantId, sessionId: sessionId },
