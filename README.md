@@ -32,8 +32,8 @@ An Amazon SQS queue and AWS Lambda function is create for each tenant to allow f
    </ol>
 6. Messages are processed as either silo or pooled depending on the route selected 
    <ol type="a" style="list-style-type: lower-alpha;">
-     <li>To process message per tenant in silo mode with FIFO, messages are sent to the tenants corresponding SQS FIFO queue with the tenant, session, and connection ids as metadata.</li>
-     <li>An AWS Lambda function per tenant is used to read messages from the SQS FIFO queue with session based grouping to keep messages in order.</li>
+     <li>To process message per tenant in silo mode with FIFO, messages are sent to the tenants corresponding SQS FIFO queue with the tenant, session, tenant settings, and connection ids as metadata.</li>
+     <li>An AWS Lambda function per tenant is used to read messages from the SQS FIFO queue with session based grouping to keep messages in order. The Lambda will also send the inbound message AND the response to all other connectionIds for the same session. Each inbound message will also update the session TTL.</li>
      <li>An AWS Lambda function is invoked for each message received by a websocket connection. The Lambda will respond by echoing the message back to the sender. The Lambda will also send the inbound message AND the response to all other connectionIds for the same session. Each inbound message will also update the session TTL.</li>
    </ol>
 7. An AWS Lambda function is used during disconnect to do the following:
@@ -97,6 +97,8 @@ Fields
 3. tenantConnections (Number) - The max number of connections this tenant is allowed
 4. sessionPerMinute (Number) - The max number of connections per minute for a session
 5. tenantPerMinute (Number) - The max number of connections per minute for this tenant
+6. sessionTTL (Number) - The session time to live value in seconds. This is used each time activity happens for a session to increase the time period before a session times out and connections are dropped. The TTL value is set as current time plus this value.
+7. messagesPerMinute (Number) - The total number of messages per minute this tenant is allowed to process before throttling the tenant.
 
 #### Limit Table
 The limit table is used to store the current limit counts for each tenant and also the per minute counts.
