@@ -17,7 +17,7 @@ exports.handler = async(event, context) => {
         }
     }
     catch (err) {
-        console.log('Error:', JSON.stringify(err, null, 2));
+        console.error(err);
         return { statusCode: 400, headers: { "Content-Type": "application/json" }, body: JSON.stringify(err.message) };
     }
 }

@@ -26,32 +26,14 @@ exports.handler = async function(event, context) {
             }
 
             // Update and check the total number of connections per minute per tenant
-            var epoch = common.seconds_since_epoch();
-            let currentMin = (Math.trunc(epoch / common.secondsPerMinute) * common.secondsPerMinute);
-            let key = tenantId + ":minute:" + currentMin;
-            var updateParams = {
-                "TableName": process.env.LimitTableName,
-                "Key": { key: key },
-                "UpdateExpression": "set itemCount = if_not_exists(itemCount, :zero) + :inc, itemTTL = :ttl",
-                "ExpressionAttributeValues": { ":ttl": currentMin + common.secondsPerMinute + 1, ":inc": 1, ":zero": 0 },
-                "ReturnValues": "UPDATED_NEW"
-            };
-            let updateResponse = await dynamo.update(updateParams).promise();
+            let updateResponse = await common.incrementLimitTablePerMinute(dynamo, tenantId, "minute");
             if (!updateResponse || updateResponse.Attributes.itemCount > event.requestContext.authorizer.tenantPerMinute) {
                 console.log("Tenant: " + tenantId + " over limit per minute");
                 return { statusCode: 429 };
             }
 
             // Update and check the total number of connections per minute per tenant/session
-            key = tenantId + ":" + sessionId + ":minute:" + currentMin;
-            updateParams = {
-                "TableName": process.env.LimitTableName,
-                "Key": { key: key },
-                "UpdateExpression": "set itemCount = if_not_exists(itemCount, :zero) + :inc, itemTTL = :ttl",
-                "ExpressionAttributeValues": { ":ttl": currentMin + common.secondsPerMinute + 1, ":inc": 1, ":zero": 0 },
-                "ReturnValues": "UPDATED_NEW"
-            };
-            updateResponse = await dynamo.update(updateParams).promise();
+            updateResponse = await common.incrementLimitTablePerMinute(dynamo, tenantId + ":" + sessionId, "minute");
             if (!updateResponse || updateResponse.Attributes.itemCount > event.requestContext.authorizer.sessionPerMinute) {
                 console.log(tenantId + "-" + sessionId + " over session per minute limit");
                 return { statusCode: 429 };
@@ -78,7 +60,7 @@ exports.handler = async function(event, context) {
             await dynamo.transactWrite({ TransactItems: [ { Update: updateConnectIdParams }, { Update: updateConnectCountParams } ] }).promise();
         }
         catch (err) {
-            console.log("Error: " + JSON.stringify(err));
+            console.error(err);
             return { statusCode: 1011 }; // return server error code
         }
         return { statusCode: 200 };

@@ -33,7 +33,7 @@ exports.handler = async function(event, context) {
         return common.generateAllow(event.methodArn, event, tenantSettings);
     }
     catch (err) {
-        console.log("Error: " + JSON.stringify(err));
+        console.error(err);
         return common.generateDeny(event.methodArn, event);
     }
 }

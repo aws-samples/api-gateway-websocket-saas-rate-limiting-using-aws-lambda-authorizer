@@ -15,17 +15,7 @@ exports.handler = async function(event, context) {
             let dynamo = common.createDynamoDBClient(event);
 
             // Update and check the total number of messages per minute per tenant
-            var epoch = common.seconds_since_epoch();
-            let currentMin = (Math.trunc(epoch / common.secondsPerMinute) * common.secondsPerMinute);
-            let key = tenantId + ":minutemsg:" + currentMin;
-            var updateParams = {
-                "TableName": process.env.LimitTableName,
-                "Key": { key: key },
-                "UpdateExpression": "set itemCount = if_not_exists(itemCount, :zero) + :inc, itemTTL = :ttl",
-                "ExpressionAttributeValues": { ":ttl": currentMin + common.secondsPerMinute + 1, ":inc": 1, ":zero": 0 },
-                "ReturnValues": "UPDATED_NEW"
-            };
-            let updateResponse = await dynamo.update(updateParams).promise();
+            let updateResponse = await common.incrementLimitTablePerMinute(dynamo, tenantId, "minutemsg");
             if (!updateResponse || updateResponse.Attributes.itemCount > event.requestContext.authorizer.messagesPerMinute) {
                 console.log("Tenant: " + tenantId + " message rate limit hit");
                 await apig.postToConnection({ ConnectionId: connectionId, Data: common.createMessageThrottleResponse(connectionId, requestId) }).promise();
@@ -52,7 +42,7 @@ exports.handler = async function(event, context) {
                 await apig.postToConnection({ ConnectionId: connectionIds[x], Data: `Echo Tenant: ${tenantId} Session: ${sessionId}: ${body}` }).promise();
             }
         } catch (err) {
-            console.log("Error: " + JSON.stringify(err));
+            console.error(err);
             return {statusCode: 1011}; // return server error code
         }
     } else {

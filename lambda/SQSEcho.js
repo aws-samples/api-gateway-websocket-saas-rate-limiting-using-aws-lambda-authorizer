@@ -32,17 +32,7 @@ exports.handler = async (event, context) => {
                 let sessionId = common.getSessionId(recordEvent);
                 let dynamo = common.createDynamoDBClient(recordEvent);
                 // Update and check the total number of messages per minute per tenant
-                var epoch = common.seconds_since_epoch();
-                let currentMin = (Math.trunc(epoch / common.secondsPerMinute) * common.secondsPerMinute);
-                let key = tenantId + ":minutemsg:" + currentMin;
-                var updateParams = {
-                    "TableName": process.env.LimitTableName,
-                    "Key": { key: key },
-                    "UpdateExpression": "set itemCount = if_not_exists(itemCount, :zero) + :inc, itemTTL = :ttl",
-                    "ExpressionAttributeValues": { ":ttl": currentMin + common.secondsPerMinute + 1, ":inc": 1, ":zero": 0 },
-                    "ReturnValues": "UPDATED_NEW"
-                };
-                let updateResponse = await dynamo.update(updateParams).promise();
+                let updateResponse = await common.incrementLimitTablePerMinute(dynamo, tenantId, "minutemsg");
                 if (!updateResponse || updateResponse.Attributes.itemCount > recordEvent.requestContext.authorizer.messagesPerMinute) {
                     console.log("Tenant: " + tenantId + " message rate limit hit");
                     await apig.postToConnection({ ConnectionId: connectionId, Data: common.createMessageThrottleResponse(connectionId, requestId) }).promise();

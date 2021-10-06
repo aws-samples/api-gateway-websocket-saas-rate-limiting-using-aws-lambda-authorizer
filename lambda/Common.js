@@ -46,6 +46,22 @@ exports.createDynamoDBClient = function(event) {
     }));
 }
 
+// Update the limit table by incrementing the itemCount field by 1 for the specified key/current min combo
+// this function returns a promise value of the update command
+exports.incrementLimitTablePerMinute = function(dynamo, keyStart, keyMid) {
+    var epoch = exports.seconds_since_epoch();
+    let currentMin = (Math.trunc(epoch / exports.secondsPerMinute) * exports.secondsPerMinute);
+    let key = keyStart + ":" + keyMid + ":" + currentMin;
+    var updateParams = {
+        "TableName": process.env.LimitTableName,
+        "Key": { key: key },
+        "UpdateExpression": "set itemCount = if_not_exists(itemCount, :zero) + :inc, itemTTL = :ttl",
+        "ExpressionAttributeValues": { ":ttl": currentMin + exports.secondsPerMinute + 1, ":inc": 1, ":zero": 0 },
+        "ReturnValues": "UPDATED_NEW"
+    };
+    return dynamo.update(updateParams).promise();
+}
+
 exports.seconds_since_epoch = function() {
     return Math.floor(Date.now() / 1000);
 }

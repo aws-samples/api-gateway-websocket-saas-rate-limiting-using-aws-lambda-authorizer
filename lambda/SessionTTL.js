@@ -18,7 +18,7 @@ exports.handler = async function(event, context) {
                         await apig.deleteConnection({ ConnectionId: connectionId }).promise();
                     }
                     catch (err) {
-                        console.log("Socket error: " + JSON.stringify(err));
+                        console.error(err);
                     }
                 };
             }
