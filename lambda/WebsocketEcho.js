@@ -27,7 +27,7 @@ exports.handler = async function(event, context) {
                 "Key": {tenantId: tenantId, sessionId: sessionId},
                 "UpdateExpression": "set sessionTTL = :ttl",
                 "ExpressionAttributeValues": {
-                    ":ttl": (Math.floor(+new Date() / 1000) + event.requestContext.authorizer.sessionTTL)
+                    ":ttl": (Math.floor(+new Date() / 1000) + parseInt(event.requestContext.authorizer.sessionTTL))
                 },
                 "ReturnValues": "ALL_OLD"
             };

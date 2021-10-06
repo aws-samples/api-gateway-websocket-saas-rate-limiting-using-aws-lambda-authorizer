@@ -45,7 +45,7 @@ exports.handler = async function(event, context) {
                 "Key": { tenantId: tenantId, sessionId: sessionId },
                 "UpdateExpression": "set sessionTTL = :ttl ADD connectionIds :c",
                 "ExpressionAttributeValues": {
-                    ":ttl": (Math.floor(+new Date() / 1000) + event.requestContext.authorizer.sessionTTL),
+                    ":ttl": (Math.floor(+new Date() / 1000) + parseInt(event.requestContext.authorizer.sessionTTL)),
                     ":c": dynamo.createSet([event.requestContext.connectionId])
                 },
                 "ReturnValues": "NONE"

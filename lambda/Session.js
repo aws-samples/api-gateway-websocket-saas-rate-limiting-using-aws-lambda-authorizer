@@ -29,7 +29,7 @@ exports.handler = async(event, context) => {
                 },
                 "UpdateExpression": "SET sessionTTL = :ttl",
                 "ExpressionAttributeValues": {
-                    ":ttl": (Math.floor(+new Date() / 1000) + TTL)
+                    ":ttl": (Math.floor(+new Date() / 1000) + response.Item.sessionTTL)
                 },
                 "ReturnValues": "UPDATED_NEW"
             };
