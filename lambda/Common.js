@@ -70,6 +70,20 @@ exports.createMessageThrottleResponse = function(connectionId, requestId) {
     return JSON.stringify({ message: "Too Many Requests", connectionId: connectionId, requestId: requestId });
 }
 
+exports.createEchoResponse = function(tenantId, sessionId, connectionId, message, queue) {
+    let response = {
+        message: JSON.parse(message),
+        tenantId: tenantId,
+        sessionId: sessionId,
+        connectionId: connectionId,
+        queue: queue
+    };
+    if (queue) {
+        response.queue = queue;
+    }
+    return JSON.stringify(response);
+}
+
 let generatePolicy = function(effect, resource, event, tenantSettings) {
     // Required output:
     let authResponse = {};

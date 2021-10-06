@@ -55,8 +55,11 @@ exports.handler = async (event, context) => {
                         await apig.postToConnection({ ConnectionId: connectionIds[x], Data: `${body}` }).promise();
                     }
                 }
+                let response = {
+
+                };
                 for (var x = 0; x < connectionIds.length; x++) {
-                    await apig.postToConnection({ ConnectionId: connectionIds[x], Data: `Echo Tenant: ${tenantId} Session: ${sessionId} Queue: ${queueName}: ${body}` }).promise();
+                    await apig.postToConnection({ ConnectionId: connectionIds[x], Data: common.createEchoResponse(tenantId, sessionId, connectionIds[x], body, queueName) }).promise();
                 }
             }
             catch (err) {

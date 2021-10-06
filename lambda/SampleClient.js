@@ -167,8 +167,13 @@ connectButton.addEventListener("click", () => {
         };
 
         connection.onmessage = (event) => {
-            let starter = event.data.startsWith("Echo") ? "Recv: " : "Sent: ";
-            addCommunication(starter + event.data, event);
+            let msg = JSON.parse(event.data);
+            if (msg.message == "Too Many Requests") {
+                addCommunication("THROTTLED!: " + event.data, event);
+            } else {
+                let starter = msg.tenantId ? "Recv: " : "Sent: ";
+                addCommunication(starter + event.data, event);
+            }
         };
     }
 });
