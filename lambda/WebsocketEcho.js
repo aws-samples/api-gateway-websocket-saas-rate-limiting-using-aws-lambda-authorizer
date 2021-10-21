@@ -5,6 +5,9 @@ const AWS = require("aws-sdk");
 const common = require("./Common.js");
 const apig = new AWS.ApiGatewayManagementApi({ endpoint: process.env.ApiGatewayEndpoint });
 
+/// This sample file is currently NOT used in this sample but is given as an example of executing a Lambda directly vs using SQS
+/// The blog post associated with this sample goes more in depth on why you may choose direct Lambda execution vs SQS
+
 exports.handler = async function(event, context) {
     //console.log('Received event:', JSON.stringify(event, null, 2));
     const {body, requestContext: {connectionId, routeKey, requestId}} = event;

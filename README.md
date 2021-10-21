@@ -13,13 +13,13 @@ An Amazon SQS queue and AWS Lambda function is create for each tenant to allow f
 <img alt="Architecture" src="./images/architecture.png" />
 
 1. The client send an HTTP PUT request to the Amazon API Gateway HTTP endpoint to create a session for a tenant. This call could also be authenticated if required but that is outside the scope of this sample.
-2. The session AWS Lambda will create a session and store it in the DynamoDB with a TTL (Time To Live) value specified which will remove all session connections if no communication is sent or received over a specific period of time.
+2. The AWS Lambda will create a session and store it in the DynamoDB with a <a href="https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/TTL.html">TTL (Time To Live)</a> value specified. <a href="https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/time-to-live-ttl-streams.html">Amazon DynamoDB Streams</a> is used to remove all session connections if no communication is sent or received over a specific period of time.
 3. Once a session is created the client will initiate a websocket connection to the Amazon AWS API Gateway websocket endpoint.
 4. An AWS Lambda function is used as the Authorizer for the websocket connection. The authorizer will do the following:
    <ol type="a" style="list-style-type: lower-alpha;">
       <li>Validate the tenant exists</li>
       <li>Validate the session exists</li>
-      <li>Add the tenantId, sessionId, and tenant settings to the authorizer context</li>
+      <li>Add the tenantId, sessionId, connectionId, and tenant settings to the authorizer context</li>
    </ol>
 5. An AWS Lambda function is used during connect to do the following:
    <ol type="a" style="list-style-type: lower-alpha;">
@@ -30,11 +30,10 @@ An Amazon SQS queue and AWS Lambda function is create for each tenant to allow f
       <li>Add the connectionId to the sessions connectionId set and update the session Time To Live (TTL)</li>
       <li>Increment the total number of connections for the tenant</li>
    </ol>
-6. Messages are processed as either silo or pooled depending on the route selected 
+6. Messages are processed as either Siloed or Pooled FIFO Queue depending on the route selected. Note that is FIFO message ordering is not a concern there is the option to have direct Lambda execution.
    <ol type="a" style="list-style-type: lower-alpha;">
-     <li>To process message per tenant in silo mode with FIFO, messages are sent to the tenants corresponding SQS FIFO queue with the tenant, session, tenant settings, and connection ids as metadata.</li>
-     <li>An AWS Lambda function per tenant is used to read messages from the SQS FIFO queue with session based grouping to keep messages in order. The Lambda will also send the inbound message AND the response to all other connectionIds for the same session. Each inbound message will also update the session TTL.</li>
-     <li>An AWS Lambda function is invoked for each message received by a websocket connection. The Lambda will respond by echoing the message back to the sender. The Lambda will also send the inbound message AND the response to all other connectionIds for the same session. Each inbound message will also update the session TTL.</li>
+     <li>Siloed based processing of messages are sent to the tenants corresponding SQS FIFO queue based on the tenantId. The tenant, session, tenant settings, and connection ID are added as metadata. An AWS Lambda function per tenant is used to read messages from the tenants SQS FIFO queue with a combination of tenantId and sessionId based grouping to keep messages in order. The Lambda will also send the inbound message AND the response to all other connectionIds for the same session. Each inbound message will also update the session TTL.</li>
+     <li>Pooled based processing of messages are sent to a single pooled SQS FIFO queue. The tenant, session, tenant settings, and connection ID are added as metadata. An AWS Lambda function is used to read messages from the SQS FIFO queue with a combination of tenantId and sessionId based grouping to keep messages in order. The Lambda will also send the inbound message AND the response to all other connectionIds for the same session. Each inbound message will also update the session TTL.</li>
    </ol>
 7. An AWS Lambda function is used during disconnect to do the following:
    <ol type="a" style="list-style-type: lower-alpha;">
@@ -42,7 +41,6 @@ An Amazon SQS queue and AWS Lambda function is create for each tenant to allow f
      <li>Decrement the total number of connections for the tenant</li>
    </ol>
 8. Once all connections are closed the client will send an HTTP DELETE request to the Amazon API Gateway HTTP endpoint to remove the session.
-9. An AWS Lambda function is used to process all DynamoDB stream updates. This function will check for TTL events and remove connections for sessions that expire.
 
 ## Requirements
 1. <a href="https://maven.apache.org/">Apache Maven</a> 3.8.1
@@ -70,9 +68,9 @@ The sample can be used to test the various aspects of the system. The following 
 2. Wait for the tenant Ids to load
 3. Click the **Create Session** button to create a new session
 4. Click the **Connect** button
-5. Once connected try both the **Send** and **Send Queue** buttons
-   1. The **Send** button will send via the **default** route which uses the pooled execution model
-   2. The **Send Queue** button will send via the **PerTenantSQS** route which uses the siloed SQS FIFO queue execution model
+5. Once connected try both the **Send Silo** and **Send Pooled** buttons
+   1. The **Send Silo** button will send via the **SiloSQS** route which uses the siloed SQS FIFO queue execution model
+   2. The **Send Pooled** button will send via the **PooledSQS** route which uses the pooled SQS FIFO queue execution model
 6. Click the **Disconnect** button to close the connection
 7. Click the **Delete Session** button to remove the current session
 
@@ -81,9 +79,9 @@ The sample can be used to test the various aspects of the system. The following 
 
 ## Silo vs Pooled Message processing
 ### Silo
-SQS queues and siloed Lambdas per tenant are used in silo mode. The API gateway will use the authorization contexts tenantId to determine the queue name per tenant. Each SQS queue has a linked Lambda function to process messages which send an echo reply.
+SQS FIFO queues and siloed Lambdas per tenant are used in silo mode. The API gateway will use the authorization contexts tenantId to determine the queue name per tenant. Each SQS FIFO queue has a linked Lambda function to process messages which send an echo reply.
 ### Pooled
-Basic API Gateway to Lambda execution is used for pooled mode. Each message received by the API gateway on the default route will invoke the reply Lambda. The Lambda will use the authorization context to handle tenant isolation.
+A single SQS FIFO queue and siloed Lambdas per tenant are used in silo mode. The API gateway will use the authorization contexts tenantId to determine the queue name per tenant. Each SQS FIFO queue has a linked Lambda function to process messages which send an echo reply.
 
 ## DynamoDB Table Structures
 All tables access is restricted by a partition key condition to only allow access to rows for which the primary index matches the current tenantId.

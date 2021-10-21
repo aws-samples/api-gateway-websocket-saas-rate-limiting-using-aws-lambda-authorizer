@@ -5,8 +5,8 @@ const connectButton = document.querySelector("#connect");
 const createSessionButton = document.querySelector("#createSession");
 const deleteSessionButton = document.querySelector("#deleteSession");
 const clearLogButton = document.querySelector("#clearLog");
-const sendButton = document.querySelector("#send");
-const sendQueueButton = document.querySelector("#sendQueue");
+const sendPooledButton = document.querySelector("#sendPooled");
+const sendSiloButton = document.querySelector("#sendSilo");
 const tenantId = document.querySelector("#tenantId");
 const sessionId = document.querySelector("#sessionId");
 const message = document.querySelector("#message");
@@ -178,21 +178,19 @@ connectButton.addEventListener("click", () => {
     }
 });
 
-function sendMesssage(sqs) {
+function sendMesssage(silo) {
     let data = {};
     data.message = message.value;
-    if (sqs) {
-        data.action = "PerTenantSQS";
-    }
+    data.action = silo ? "SiloSQS" : "PooledSQS";
     let sendData = JSON.stringify(data);
     connection.send(sendData);
     addCommunication("Sent: " + sendData);
 }
 
-sendButton.addEventListener("click", () => {
+sendPooledButton.addEventListener("click", () => {
     sendMesssage(false);
 });
 
-sendQueueButton.addEventListener("click", () => {
+sendSiloButton.addEventListener("click", () => {
     sendMesssage(true);
 });

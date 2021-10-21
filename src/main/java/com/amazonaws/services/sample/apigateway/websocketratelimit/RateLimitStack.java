@@ -34,7 +34,6 @@ public class RateLimitStack extends Stack {
     private Function tenantFunction;
     private Function websocketConnectFunction;
     private Function websocketDisconnectFunction;
-    private Function websocketEchoFunction;
     private Function authorizerFunction;
     private WebSocketApi api;
     private HttpApi sessionApi;
@@ -57,10 +56,10 @@ public class RateLimitStack extends Stack {
         createTenantLambda();
         createWebsocketConnectLambda();
         createWebsocketDisconnectLambda();
-        createWebsocketEchoLambda();
         createAuthorizerLambda();
         createAPIGatewayWebsocket();
-        createPerTenantQueueWebsocketAPIRoute();
+        createQueueWebsocketAPIRoute(true); // silo
+        createQueueWebsocketAPIRoute(false); // pooled
         createAuthorizer();
         createConnectIntegration();
         createStage();
@@ -169,14 +168,6 @@ public class RateLimitStack extends Stack {
         sessionTable.grantReadWriteData(websocketDisconnectFunction);
     }
 
-    private void createWebsocketEchoLambda() {
-        websocketEchoFunction = Function.Builder.create(this, "WebsocketEcho")
-                .runtime(Runtime.NODEJS_12_X)
-                .code(Code.fromAsset("lambda"))
-                .handler("WebsocketEcho.handler")
-                .build();
-    }
-
     private void createAuthorizerLambda() {
         authorizerFunction = Function.Builder.create(this, "Authorizer")
                 .runtime(Runtime.NODEJS_12_X)
@@ -197,28 +188,25 @@ public class RateLimitStack extends Stack {
                                 .handler(websocketDisconnectFunction)
                                 .build())
                         .build())
-                .defaultRouteOptions(WebSocketRouteOptions.builder()
-                        .integration(LambdaWebSocketIntegration.Builder.create()
-                                .handler(websocketEchoFunction)
-                                .build())
-                        .build())
                 .build();
     }
 
-    private void createPerTenantQueueWebsocketAPIRoute() {
-        Role apiGatewayWebsocketSQSRole = Role.Builder.create(this, "ApiGatewayWebsocketSQSRole")
+
+    private void createQueueWebsocketAPIRoute(boolean silo) {
+        String nameExt = silo ? "Silo" : "Pooled";
+        Role apiGatewayWebsocketSQSRole = Role.Builder.create(this, "ApiGatewayWebsocket" + nameExt + "SQSRole")
                 .assumedBy(ServicePrincipal.Builder.create("apigateway.amazonaws.com").build())
-                .inlinePolicies(Map.of("APIGatewaySQSSendMessagePolicy", PolicyDocument.Builder.create()
+                .inlinePolicies(Map.of("APIGateway" + nameExt + "SQSSendMessagePolicy", PolicyDocument.Builder.create()
                                 .statements(List.of(PolicyStatement.Builder.create()
                                                 .effect(Effect.ALLOW)
                                                 .actions(List.of("sqs:SendMessage"))
-                                                .resources(List.of("arn:aws:sqs:" + getRegion() +":" + getAccount() + ":tenant-*.fifo"))
+                                                .resources(List.of("arn:aws:sqs:" + getRegion() +":" + getAccount() + ":tenant-" + (silo ? "*" : nameExt) + ".fifo"))
                                         .build()))
                         .build()))
                 .build();
         String requestTemplateItem = "";
         requestTemplateItem += "Action=SendMessage";
-        requestTemplateItem += "&MessageGroupId=$context.authorizer.sessionId";
+        requestTemplateItem += "&MessageGroupId=$context.authorizer.tenantId-$context.authorizer.sessionId";
         requestTemplateItem += "&MessageDeduplicationId=$context.requestId";
         requestTemplateItem += "&MessageAttribute.1.Name=tenantId&MessageAttribute.1.Value.StringValue=$context.authorizer.tenantId&MessageAttribute.1.Value.DataType=String";
         requestTemplateItem += "&MessageAttribute.2.Name=sessionId&MessageAttribute.2.Value.StringValue=$context.authorizer.sessionId&MessageAttribute.2.Value.DataType=String";
@@ -231,7 +219,7 @@ public class RateLimitStack extends Stack {
         requestTemplateItem += "&MessageAttribute.9.Name=tenantConnections&MessageAttribute.9.Value.StringValue=$context.authorizer.tenantConnections&MessageAttribute.9.Value.DataType=String";
         requestTemplateItem += "&MessageAttribute.10.Name=messagesPerMinute&MessageAttribute.10.Value.StringValue=$context.authorizer.messagesPerMinute&MessageAttribute.10.Value.DataType=String";
         requestTemplateItem += "&MessageBody=$input.json('$')";
-        CfnIntegration integration = CfnIntegration.Builder.create(this, "Integration")
+        CfnIntegration integration = CfnIntegration.Builder.create(this, nameExt + "Integration")
                 .apiId(api.getApiId())
                 .connectionType("INTERNET")
                 .integrationType("AWS")
@@ -244,17 +232,17 @@ public class RateLimitStack extends Stack {
                         "integration.request.header.Content-Type",
                         "'application/x-www-form-urlencoded'",
                         "integration.request.path.queue",
-                        "context.authorizer.tenantId"))
+                        silo ? "context.authorizer.tenantId" : "'" + nameExt + "'"))
                 .requestTemplates(Map.of(
                         "$default",
                         requestTemplateItem
                 ))
                 .build();
-        CfnRoute.Builder.create(this, "PerTenantQueueRoute")
+        CfnRoute.Builder.create(this, nameExt + "Route")
                 .apiId(api.getApiId())
-                .routeKey("PerTenantSQS")
+                .routeKey(nameExt + "SQS")
                 .target("integrations/" + integration.getRef())
-                .build();
+                .build();            
     }
 
     private void createAuthorizer() {
@@ -338,7 +326,6 @@ public class RateLimitStack extends Stack {
         setupWebsocketFunction(sessionTTLLambda, null, true, true);
         setupWebsocketFunction(websocketConnectFunction, "/*/$connect", true);
         setupWebsocketFunction(websocketDisconnectFunction, "/*/$disconnect", true);
-        setupWebsocketFunction(websocketEchoFunction, "/*/$default", true);
         setupWebsocketFunction(authorizerFunction, "/authorizers/" + authorizer.getRef(), false);
         setupWebsocketFunction(sessionFunction, null, false);
         setupWebsocketFunction(tenantFunction, null, false, false);
@@ -400,6 +387,8 @@ public class RateLimitStack extends Stack {
         addSampleTenantId("a5a82459-3f18-4ecd-89a6-2d13af314751", "60", "5", "2", "10", "200", "60", 1);
         addSampleTenantId("9175b21a-332a-4a7a-a72d-9184ad7186c0", "120", "10", "5", "100", "300","600",2);
         addSampleTenantId("31a2e8c6-1826-11ec-9621-0242ac130002", "180", "30", "10", "1000", "300","6000",3);
+        Function sqsEchoFunction = createSQSEchoLambda("Pooled");
+        createSQSFifoQueuePerTenant("Pooled", sqsEchoFunction);
     }
 
     private void addSampleTenantId(String tenantId, String tenantPerMinute, String sessionPerMinute, String connectionsPerSession, String tenantConnections, String sessionTTL, String messagesPerMinute, int index) {
