@@ -1,4 +1,4 @@
-# API Gateway Websocket SaaS Rate Limiting using AWS Lambda Authorizer
+# API Gateway WebSocket SaaS Rate Limiting using AWS Lambda Authorizer
 
 When creating a SaaS multi-tenant systems which require websocket connections we need a way to rate limit those connections on a per tenant basis. 
 With Amazon API Gateway you have the option to use usage plans with HTTP connections however they are not available for websockets. 
@@ -14,7 +14,7 @@ An Amazon SQS queue and AWS Lambda function is create for each tenant to allow f
 
 1. The client send an HTTP PUT request to the Amazon API Gateway HTTP endpoint to create a session for a tenant. This call could also be authenticated if required but that is outside the scope of this sample.
 2. The AWS Lambda will create a session and store it in DynamoDB with a <a href="https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/TTL.html">TTL (Time To Live)</a> value specified. <a href="https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/time-to-live-ttl-streams.html">Amazon DynamoDB Streams</a> is used to remove all session connections if no communication is sent or received over a specific period of time.
-3. Once a session is created the client will initiate a websocket connection to the Amazon AWS API Gateway websocket endpoint.
+3. Once a session is created the client will initiate a websocket connection to the Amazon AWS API Gateway WebSocket endpoint.
 4. An AWS Lambda function is used as the Authorizer for the websocket connection. The authorizer will do the following:
    <ol type="a" style="list-style-type: lower-alpha;">
       <li>Validate the tenant exists</li>
@@ -64,7 +64,7 @@ An Amazon SQS queue and AWS Lambda function is create for each tenant to allow f
 <img alt="Sample Web Page" src="./images/sample.jpg" />
 
 The sample can be used to test the various aspects of the system. The following steps are the happy path:
-1. Open the web page given as the output **APIGatewayWebsocketRateLimitStack.SampleClient** from the CDK deployment
+1. Open the web page given as the output **APIGatewayWebSocketRateLimitStack.SampleClient** from the CDK deployment
 2. Wait for the tenant Ids to load
 3. Click the **Create Session** button to create a new session
 4. Click the **Connect** button
