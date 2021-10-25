@@ -7,7 +7,7 @@ let tenantSettingsCache = {}; // Defined outside the function globally
 // This handler will check if the given tenant id and session id are valid.
 // The tenant and session id are given via the query string parameter from the client.
 // The session id is short lived and is removed either by the end user deleting it when done
-// or by a time-to-live (TTL) timeout from DynamoBD
+// or by a time to live (TTL) timeout from DynamoBD
 exports.handler = async function(event, context) {
     //console.log('Received event:', JSON.stringify(event, null, 2));
     let dynamo = common.createDynamoDBClient(event);

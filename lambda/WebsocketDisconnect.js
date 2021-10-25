@@ -3,6 +3,8 @@
 
 const common = require("./Common.js");
 
+// This handler will remove the current connection from the sessions connectionId set
+// and decrement the total number of connections for this tenant
 exports.handler = async function(event, context) {
     //console.log('Received event:', JSON.stringify(event, null, 2));
 
