@@ -206,7 +206,7 @@ public class RateLimitStack extends Stack {
                 .build();
         String requestTemplateItem = "";
         requestTemplateItem += "Action=SendMessage";
-        requestTemplateItem += "&MessageGroupId=$context.authorizer.tenantId-$context.authorizer.sessionId";
+        requestTemplateItem += "&MessageGroupId=$context.authorizer.tenantId:$context.authorizer.sessionId";
         requestTemplateItem += "&MessageDeduplicationId=$context.requestId";
         requestTemplateItem += "&MessageAttribute.1.Name=tenantId&MessageAttribute.1.Value.StringValue=$context.authorizer.tenantId&MessageAttribute.1.Value.DataType=String";
         requestTemplateItem += "&MessageAttribute.2.Name=sessionId&MessageAttribute.2.Value.StringValue=$context.authorizer.sessionId&MessageAttribute.2.Value.DataType=String";
