@@ -3,6 +3,9 @@
 
 const common = require("./Common.js");
 
+// This handler is just a sample helper to fetch the current tenant ids from the database.
+// In a production system the tenant id would typically be known to the user and a list would not be
+// available as a public endpoint.
 exports.handler = async(event, context) => {
     //console.log('Received event:', JSON.stringify(event, null, 2));
 

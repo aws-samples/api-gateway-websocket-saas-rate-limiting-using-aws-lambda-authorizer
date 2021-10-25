@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: MIT-0
 
 const common = require("./Common.js");
-const TTL = 60 * 5; // Set TTL for 5 mins
 
+// This handler is used to create a session id for a given tenant id. This session id is required when creating a websocket connection.
+// A session time-to-live (TTL) is set for each session based on the tenant settings.
 exports.handler = async(event, context) => {
     //console.log('Received event:', JSON.stringify(event, null, 2));
 

@@ -32,8 +32,8 @@ public class RateLimitStack extends Stack {
     private Function sampleClientFunction;
     private Function sessionFunction;
     private Function tenantFunction;
-    private Function websocketConnectFunction;
-    private Function websocketDisconnectFunction;
+    private Function webSocketConnectFunction;
+    private Function webSocketDisconnectFunction;
     private Function authorizerFunction;
     private WebSocketApi api;
     private HttpApi sessionApi;
@@ -54,12 +54,12 @@ public class RateLimitStack extends Stack {
         createSampleClientLambda();
         createSessionLambda();
         createTenantLambda();
-        createWebsocketConnectLambda();
-        createWebsocketDisconnectLambda();
+        createWebSocketConnectLambda();
+        createWebSocketDisconnectLambda();
         createAuthorizerLambda();
-        createAPIGatewayWebsocket();
-        createQueueWebsocketAPIRoute(true); // silo
-        createQueueWebsocketAPIRoute(false); // pooled
+        createAPIGatewayWebSocket();
+        createQueueWebSocketAPIRoute(true); // silo
+        createQueueWebSocketAPIRoute(false); // pooled
         createAuthorizer();
         createConnectIntegration();
         createStage();
@@ -151,21 +151,21 @@ public class RateLimitStack extends Stack {
     }
 
 
-    private void createWebsocketConnectLambda() {
-        websocketConnectFunction = Function.Builder.create(this, "WebsocketConnect")
+    private void createWebSocketConnectLambda() {
+        webSocketConnectFunction = Function.Builder.create(this, "WebSocketConnect")
                 .runtime(Runtime.NODEJS_12_X)
                 .code(Code.fromAsset("lambda"))
-                .handler("WebsocketConnect.handler")
+                .handler("WebSocketConnect.handler")
                 .build();
     }
 
-    private void createWebsocketDisconnectLambda() {
-        websocketDisconnectFunction = Function.Builder.create(this, "WebsocketDisconnect")
+    private void createWebSocketDisconnectLambda() {
+        webSocketDisconnectFunction = Function.Builder.create(this, "WebSocketDisconnect")
                 .runtime(Runtime.NODEJS_12_X)
                 .code(Code.fromAsset("lambda"))
-                .handler("WebsocketDisconnect.handler")
+                .handler("WebSocketDisconnect.handler")
                 .build();
-        sessionTable.grantReadWriteData(websocketDisconnectFunction);
+        sessionTable.grantReadWriteData(webSocketDisconnectFunction);
     }
 
     private void createAuthorizerLambda() {
@@ -176,25 +176,25 @@ public class RateLimitStack extends Stack {
                 .build();
     }
 
-    private void createAPIGatewayWebsocket() {
+    private void createAPIGatewayWebSocket() {
         // Create a websocket API endpoint with routing to our echo lambda
         // We do not create the connect route at this point due to the authorizer not being enabled for the WebSocketRouteOptions
         // yet, we will instead use the low level Cfn style functions later.
-        api = WebSocketApi.Builder.create(this, "WebsocketAPIGateway")
-                .apiName("WebsocketRateLimitSample")
+        api = WebSocketApi.Builder.create(this, "WebSocketAPIGateway")
+                .apiName("WebSocketRateLimitSample")
                 .description("Rate limit websocket connections using a Lambda Authorizer.")
                 .disconnectRouteOptions(WebSocketRouteOptions.builder()
                         .integration(LambdaWebSocketIntegration.Builder.create()
-                                .handler(websocketDisconnectFunction)
+                                .handler(webSocketDisconnectFunction)
                                 .build())
                         .build())
                 .build();
     }
 
 
-    private void createQueueWebsocketAPIRoute(boolean silo) {
+    private void createQueueWebSocketAPIRoute(boolean silo) {
         String nameExt = silo ? "Silo" : "Pooled";
-        Role apiGatewayWebsocketSQSRole = Role.Builder.create(this, "ApiGatewayWebsocket" + nameExt + "SQSRole")
+        Role apiGatewayWebSocketSQSRole = Role.Builder.create(this, "ApiGatewayWebSocket" + nameExt + "SQSRole")
                 .assumedBy(ServicePrincipal.Builder.create("apigateway.amazonaws.com").build())
                 .inlinePolicies(Map.of("APIGateway" + nameExt + "SQSSendMessagePolicy", PolicyDocument.Builder.create()
                                 .statements(List.of(PolicyStatement.Builder.create()
@@ -223,7 +223,7 @@ public class RateLimitStack extends Stack {
                 .apiId(api.getApiId())
                 .connectionType("INTERNET")
                 .integrationType("AWS")
-                .credentialsArn(apiGatewayWebsocketSQSRole.getRoleArn())
+                .credentialsArn(apiGatewayWebSocketSQSRole.getRoleArn())
                 .templateSelectionExpression("\\$default")
                 .integrationMethod("POST")
                 .integrationUri("arn:aws:apigateway:" + getRegion() + ":sqs:path/" + getAccount() + "/tenant-{queue}.fifo")
@@ -259,7 +259,7 @@ public class RateLimitStack extends Stack {
         CfnIntegration integration = CfnIntegration.Builder.create(this, "ConnectLambdaIntegration")
                 .integrationType("AWS_PROXY")
                 .integrationMethod("POST")
-                .integrationUri("arn:aws:apigateway:" + getRegion() + ":lambda:path/2015-03-31/functions/" + websocketConnectFunction.getFunctionArn() + "/invocations")
+                .integrationUri("arn:aws:apigateway:" + getRegion() + ":lambda:path/2015-03-31/functions/" + webSocketConnectFunction.getFunctionArn() + "/invocations")
                 .apiId(api.getApiId())
                 .build();
 
@@ -274,7 +274,7 @@ public class RateLimitStack extends Stack {
 
     private void createStage() {
         // Setup a production stage with auto deploy which will make sure we are ready to run as soon as the cloudformation stack completes
-        stage = WebSocketStage.Builder.create(this, "EchoWebsocketAPIGatewayProd")
+        stage = WebSocketStage.Builder.create(this, "EchoWebSocketAPIGatewayProd")
                 .stageName("production")
                 .webSocketApi(api)
                 .autoDeploy(true)
@@ -283,7 +283,7 @@ public class RateLimitStack extends Stack {
 
     private void createAPIGatewaySessionAndSample() {
         sessionApi = HttpApi.Builder.create(this, "SessionAndSampleAPIGateway")
-                .apiName("WebsocketRateLimitSessionSample")
+                .apiName("WebSocketRateLimitSessionSample")
                 .description("Creates and removes sessions and loads sample client")
                 .createDefaultStage(false)
                 .build();
@@ -323,23 +323,23 @@ public class RateLimitStack extends Stack {
 
     private void setupAPIGatewayLambdaFunctions() {
         // Update the lambdas to allow callbacks to this websocket endpoint and set environment variables to be able to reach various resources.
-        setupWebsocketFunction(sessionTTLLambda, null, true, true);
-        setupWebsocketFunction(websocketConnectFunction, "/*/$connect", true);
-        setupWebsocketFunction(websocketDisconnectFunction, "/*/$disconnect", true);
-        setupWebsocketFunction(authorizerFunction, "/authorizers/" + authorizer.getRef(), false);
-        setupWebsocketFunction(sessionFunction, null, false);
-        setupWebsocketFunction(tenantFunction, null, false, false);
+        setupWebSocketFunction(sessionTTLLambda, null, true, true);
+        setupWebSocketFunction(webSocketConnectFunction, "/*/$connect", true);
+        setupWebSocketFunction(webSocketDisconnectFunction, "/*/$disconnect", true);
+        setupWebSocketFunction(authorizerFunction, "/authorizers/" + authorizer.getRef(), false);
+        setupWebSocketFunction(sessionFunction, null, false);
+        setupWebSocketFunction(tenantFunction, null, false, false);
 
         sampleClientFunction.addEnvironment("WssUrl", stage.getUrl());
         sampleClientFunction.addEnvironment("SessionUrl", sessionApi.getApiEndpoint() + "/production/session");
         sampleClientFunction.addEnvironment("TenantUrl", sessionApi.getApiEndpoint() + "/production/tenant");
     }
 
-    private void setupWebsocketFunction(Function function, String permissionEndpoint, boolean includePostPolicy) {
-        setupWebsocketFunction(function, permissionEndpoint, includePostPolicy, false);
+    private void setupWebSocketFunction(Function function, String permissionEndpoint, boolean includePostPolicy) {
+        setupWebSocketFunction(function, permissionEndpoint, includePostPolicy, false);
     }
 
-    private void setupWebsocketFunction(Function function, String permissionEndpoint, boolean includePostPolicy, boolean includeDeletePolicy) {
+    private void setupWebSocketFunction(Function function, String permissionEndpoint, boolean includePostPolicy, boolean includeDeletePolicy) {
         function.addEnvironment("ApiGatewayEndpoint", stage.getUrl().replace("wss://", ""));
         function.addEnvironment("TenantTableName", tenantTable.getTableName());
         function.addEnvironment("SessionTableName", sessionTable.getTableName());
@@ -433,7 +433,7 @@ public class RateLimitStack extends Stack {
                 .handler("SQSEcho.handler")
                 .build();
         Tags.of(function).add("tenantId", tenantId);
-        setupWebsocketFunction(function, null, true);
+        setupWebSocketFunction(function, null, true);
         return function;
     }
 

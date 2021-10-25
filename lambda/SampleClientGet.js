@@ -3,6 +3,7 @@
 
 const fs = require('fs')
 
+// This is a simple handler to return back the sample webpage with url values created by the cloudformation stack
 exports.handler = async(event) => {
     //console.log("Sample: " + JSON.stringify(event, null, 2));
 

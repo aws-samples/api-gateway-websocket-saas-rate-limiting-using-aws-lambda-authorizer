@@ -13,13 +13,13 @@ An Amazon SQS queue and AWS Lambda function is create for each tenant to allow f
 <img alt="Architecture" src="./images/architecture.png" />
 
 1. The client send an HTTP PUT request to the Amazon API Gateway HTTP endpoint to create a session for a tenant. This call could also be authenticated if required but that is outside the scope of this sample.
-2. The AWS Lambda will create a session and store it in the DynamoDB with a <a href="https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/TTL.html">TTL (Time To Live)</a> value specified. <a href="https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/time-to-live-ttl-streams.html">Amazon DynamoDB Streams</a> is used to remove all session connections if no communication is sent or received over a specific period of time.
+2. The AWS Lambda will create a session and store it in DynamoDB with a <a href="https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/TTL.html">TTL (Time To Live)</a> value specified. <a href="https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/time-to-live-ttl-streams.html">Amazon DynamoDB Streams</a> is used to remove all session connections if no communication is sent or received over a specific period of time.
 3. Once a session is created the client will initiate a websocket connection to the Amazon AWS API Gateway websocket endpoint.
 4. An AWS Lambda function is used as the Authorizer for the websocket connection. The authorizer will do the following:
    <ol type="a" style="list-style-type: lower-alpha;">
       <li>Validate the tenant exists</li>
       <li>Validate the session exists</li>
-      <li>Add the tenantId, sessionId, connectionId, and tenant settings to the authorizer context</li>
+      <li>Add the tenantId, sessionId, connectionId, and tenant settings to the authorization context</li>
    </ol>
 5. An AWS Lambda function is used during connect to do the following:
    <ol type="a" style="list-style-type: lower-alpha;">
@@ -30,7 +30,7 @@ An Amazon SQS queue and AWS Lambda function is create for each tenant to allow f
       <li>Add the connectionId to the sessions connectionId set and update the session Time To Live (TTL)</li>
       <li>Increment the total number of connections for the tenant</li>
    </ol>
-6. Messages are processed as either Siloed or Pooled FIFO Queue depending on the route selected. Note that is FIFO message ordering is not a concern there is the option to have direct Lambda execution.
+6. Messages are processed via a Siloed or Pooled FIFO Queue depending on the route selected.
    <ol type="a" style="list-style-type: lower-alpha;">
      <li>Siloed based processing of messages are sent to the tenants corresponding SQS FIFO queue based on the tenantId. The tenant, session, tenant settings, and connection ID are added as metadata. An AWS Lambda function per tenant is used to read messages from the tenants SQS FIFO queue with a combination of tenantId and sessionId based grouping to keep messages in order. The Lambda will also send the inbound message AND the response to all other connectionIds for the same session. Each inbound message will also update the session TTL.</li>
      <li>Pooled based processing of messages are sent to a single pooled SQS FIFO queue. The tenant, session, tenant settings, and connection ID are added as metadata. An AWS Lambda function is used to read messages from the SQS FIFO queue with a combination of tenantId and sessionId based grouping to keep messages in order. The Lambda will also send the inbound message AND the response to all other connectionIds for the same session. Each inbound message will also update the session TTL.</li>
@@ -51,13 +51,13 @@ An Amazon SQS queue and AWS Lambda function is create for each tenant to allow f
 2. In the root directory of the repository execute the command ```cdk deploy```
 3. Review the permissions and follow prompts
 4. After deployment the CDK will list the outputs as follows:
-   1. APIGatewayWebsocketRateLimitStack.SampleClient
+   1. APIGatewayWebSocketRateLimitStack.SampleClient
       1. The URI points to the sample web page described below
-   2. APIGatewayWebsocketRateLimitStack.SessionURL
+   2. APIGatewayWebSocketRateLimitStack.SessionURL
       1. This URI points to the endpoint which is able to create sessions
-   3. APIGatewayWebsocketRateLimitStack.TenantURL
+   3. APIGatewayWebSocketRateLimitStack.TenantURL
       1. This URI is only exposed for demo purposes and is used to get a list of the current tenant Ids
-   4. APIGatewayWebsocketRateLimitStack.WebSocketURL
+   4. APIGatewayWebSocketRateLimitStack.WebSocketURL
       1. This URI is the websocket connection endpoint
 
 ## Sample Web Page

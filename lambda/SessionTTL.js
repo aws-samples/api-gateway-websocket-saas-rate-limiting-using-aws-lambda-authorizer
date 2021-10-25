@@ -4,6 +4,7 @@
 const AWS = require("aws-sdk");
 const apig = new AWS.ApiGatewayManagementApi({ endpoint: process.env.ApiGatewayEndpoint });
 
+// This handler is used to disconnect any remaining websocket connections for a given session when the time-to-live (TTL) expires
 exports.handler = async function(event, context) {
     //console.log(JSON.stringify(event));
     for (let x = 0; x < event.Records.length; x++) {

@@ -10,8 +10,8 @@ public class RateLimitApp {
     public static void main(final String[] args) {
         App app = new App();
 
-        new RateLimitStack(app, "APIGatewayWebsocketRateLimitStack", StackProps.builder()
-                .stackName("APIGatewayWebsocketRateLimit")
+        new RateLimitStack(app, "APIGatewayWebSocketRateLimitStack", StackProps.builder()
+                .stackName("APIGatewayWebSocketRateLimit")
                 .build());
 
         app.synth();

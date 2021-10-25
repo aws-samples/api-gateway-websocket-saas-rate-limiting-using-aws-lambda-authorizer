@@ -5,6 +5,7 @@ const AWS = require("aws-sdk");
 
 exports.secondsPerMinute = 60;
 
+// Encapsulating the two ways in which we can access a tenant Id depending on if the system has already been authorized 
 exports.getTenantId = function(event) {
     if (event.requestContext && event.requestContext.authorizer && event.requestContext.authorizer.tenantId) {
         return event.requestContext.authorizer.tenantId;
@@ -14,6 +15,7 @@ exports.getTenantId = function(event) {
     return undefined;
 }
 
+// Encapsulating the two ways in which we can access a session Id depending on if the system has already been authorized 
 exports.getSessionId = function(event) {
     if (event.requestContext && event.requestContext.authorizer && event.requestContext.authorizer.sessionId) {
         return event.requestContext.authorizer.sessionId;
@@ -23,6 +25,8 @@ exports.getSessionId = function(event) {
     return undefined;
 }
 
+// During the creation of the DynamoBD connection the tenant Id is added as the transitive tag key
+// to make sure we can only access data for this specific tenant
 exports.createDynamoDBClient = function(event) {
     var credentials = new AWS.ChainableTemporaryCredentials({
         params: {
@@ -84,6 +88,8 @@ exports.createEchoResponse = function(tenantId, sessionId, connectionId, message
     return JSON.stringify(response);
 }
 
+// A policy is generated with an effect (Allow/Deny) and the context is filled
+// with the tenant and session information
 let generatePolicy = function(effect, resource, event, tenantSettings) {
     // Required output:
     let authResponse = {};

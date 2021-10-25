@@ -4,8 +4,9 @@
 const AWS = require("aws-sdk");
 const common = require("./Common.js");
 const apig = new AWS.ApiGatewayManagementApi({ endpoint: process.env.ApiGatewayEndpoint });
-const TTL = 60 * 5; // Set TTL for 5 mins
 
+// This handler will iterate the event records from the SQS queue and send a response message back to each
+// connection associated with the session. This keeps all session connections in sync across multiple web browser windows/tabs.
 exports.handler = async (event, context) => {
     //console.log("Event: ", JSON.stringify(event, null, 2));
     if (event.Records) {
