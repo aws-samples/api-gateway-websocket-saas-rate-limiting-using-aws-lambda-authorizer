@@ -12,7 +12,7 @@ exports.handler = async function(event, context) {
         let sessionId = common.getSessionId(event);
         try {
             // Check if we are over the number of connections allowed per tenant
-            let response = await dynamo.get({ "TableName": process.env.LimitTableName, "Key": { key: tenantId } }).promise();
+            let response = await dynamo.get({ "TableName": process.env.LimitTableName, "Key": { tenantId: tenantId, key: tenantId } }).promise();
             if (response && response.Item && response.Item.itemCount && response.Item.itemCount >= event.requestContext.authorizer.tenantConnections) {
                 console.log("Tenant " + tenantId + " over tenant total limit");
                 return { statusCode: 429 };
@@ -26,14 +26,14 @@ exports.handler = async function(event, context) {
             }
 
             // Update and check the total number of connections per minute per tenant
-            let updateResponse = await common.incrementLimitTablePerMinute(dynamo, tenantId, "minute");
+            let updateResponse = await common.incrementLimitTablePerMinute(dynamo, tenantId, tenantId, "minute");
             if (!updateResponse || updateResponse.Attributes.itemCount > event.requestContext.authorizer.tenantPerMinute) {
                 console.log("Tenant: " + tenantId + " over limit per minute");
                 return { statusCode: 429 };
             }
 
             // Update and check the total number of connections per minute per tenant/session
-            updateResponse = await common.incrementLimitTablePerMinute(dynamo, tenantId + ":" + sessionId, "minute");
+            updateResponse = await common.incrementLimitTablePerMinute(dynamo, tenantId,tenantId + ":" + sessionId, "minute");
             if (!updateResponse || updateResponse.Attributes.itemCount > event.requestContext.authorizer.sessionPerMinute) {
                 console.log(tenantId + "-" + sessionId + " over session per minute limit");
                 return { statusCode: 429 };
@@ -52,7 +52,7 @@ exports.handler = async function(event, context) {
             };
             var updateConnectCountParams = {
                 "TableName": process.env.LimitTableName,
-                "Key": { key: tenantId },
+                "Key": { tenantId: tenantId, key: tenantId },
                 "UpdateExpression": "set itemCount = if_not_exists(itemCount, :zero) + :inc",
                 "ExpressionAttributeValues": { ":inc": 1, ":zero": 0 },
                 "ReturnValues": "NONE"

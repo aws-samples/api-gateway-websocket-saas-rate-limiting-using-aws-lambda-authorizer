@@ -24,7 +24,7 @@ exports.handler = async function(event, context) {
             };
             let updateConnectCountParams = {
                 "TableName": process.env.LimitTableName,
-                "Key": {key: tenantId},
+                "Key": { tenantId: tenantId, key: tenantId },
                 "UpdateExpression": "set itemCount = if_not_exists(itemCount, :zero) - :dec",
                 "ExpressionAttributeValues": {":dec": 1, ":zero": 0},
                 "ReturnValues": "NONE"
