@@ -44,7 +44,7 @@ An Amazon SQS queue and AWS Lambda function is create for each tenant to allow f
 
 ## Requirements
 1. <a href="https://maven.apache.org/">Apache Maven</a> 3.8.1
-2. <a href="https://aws.amazon.com/cdk/">AWS CDK</a> 1.125.0 or later installed
+2. <a href="https://aws.amazon.com/cdk/">AWS CDK</a> 1.130.0 or later installed
 
 ## Setup
 1. git clone this repository
