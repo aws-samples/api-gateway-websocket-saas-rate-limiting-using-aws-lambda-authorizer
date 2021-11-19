@@ -83,7 +83,7 @@ function loadTenants() {
                 console.log("Item: " + JSON.stringify(items.Items[x]));
                 var opt = document.createElement('option');
                 opt.value = items.Items[x].tenantId;
-                opt.innerHTML = items.Items[x].tenantId;
+                opt.innerHTML = escape(items.Items[x].tenantId);
                 tenantId.appendChild(opt);
             }
         }
