@@ -1,46 +1,43 @@
-# API Gateway WebSocket SaaS Rate Limiting using AWS Lambda Authorizer
+# API Gateway WebSocket SaaS Multi-Tenant Rate Limiting
 
-When creating a SaaS multi-tenant systems which require websocket connections we need a way to rate limit those connections on a per tenant basis. 
-With Amazon API Gateway you have the option to use usage plans with HTTP connections however they are not available for websockets. 
+When creating a SaaS multi-tenant systems which require websocket connections we need a way to rate limit those connections on a per tenant basis.
+With Amazon API Gateway you have the option to use usage plans with HTTP connections however they are not available for websockets.
 To enable rate limiting we can use a <a href="https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-use-lambda-authorizer.html">API Gateway Lambda Authorizer</a> to validate a connection and control access. 
 Using a Lambda Authorizer we can implement code to allow the system to valid connection rates and throttle inbound connections on a per tenant basis.
-This sample also demonstrates pool and silo modes for handling the message traffic per tenant.
-The pool mode simply uses a single AWS Lambda to process all inbound messages using the authorization context to handle tenant isolation.
-The silo mode uses Amazon SQS to enable per tenant FIFO queue message ordering. 
-An Amazon SQS queue and AWS Lambda function is create for each tenant to allow for per tenant throttling and FIFO queue isolation per session of a tenant.
+This sample also demonstrates pool and silo modes for handling the message traffic per tenant. 
 
 ## Architecture
 <img alt="Architecture" src="./images/architecture.png" />
 
-1. The client send an HTTP PUT request to the Amazon API Gateway HTTP endpoint to create a session for a tenant. This call could also be authenticated if required but that is outside the scope of this sample.
-2. The AWS Lambda will create a session and store it in DynamoDB with a <a href="https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/TTL.html">TTL (Time To Live)</a> value specified. <a href="https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/time-to-live-ttl-streams.html">Amazon DynamoDB Streams</a> is used to remove all session connections if no communication is sent or received over a specific period of time.
-3. Once a session is created the client will initiate a websocket connection to the Amazon AWS API Gateway WebSocket endpoint.
-4. An AWS Lambda function is used as the Authorizer for the websocket connection. The authorizer will do the following:
+1. The client sends an HTTP PUT request to the Amazon API Gateway HTTP endpoint to create a session for a tenant. If required, this call can be authenticated, however, that is outside the scope of this sample.
+2. A Lambda function will create a session and store it in a DynamoDB table with a <a href="https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/TTL.html">TTL (Time To Live)</a> value specified. <a href="https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/time-to-live-ttl-streams.html">Amazon DynamoDB Streams</a> are used to remove all session connections if no communication is sent or received over a specific period of time. Each call to the database layer is restricted by <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_iam-condition-keys.html">conditional keys</a> using <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_iam-condition-keys.html#ck_transitivetagkeys">sts:TransitiveTagKeys</a> so each tenant can only access its specific rows based on the tenant ID.
+3. Once a session is created the client will initiate a websocket connection to the Amazon AWS API Gateway WebSocket endpoint. A session can be used multiple times to create connections from multiple web browser windows. The session is used to keep these different connections in sync.
+4. A Lambda function is used as the Authorizer for the WebSocket connection. The authorizer will do the following:
    <ol type="a" style="list-style-type: lower-alpha;">
-      <li>Validate the tenant exists</li>
-      <li>Validate the session exists</li>
-      <li>Add the tenantId, sessionId, connectionId, and tenant settings to the authorization context</li>
+      <li>Validate the tenant exists.</li>
+      <li>Validate the session exists.</li>
+      <li>Add the tenant ID, session ID, connection ID, and tenant settings to the authorization context.</li>
    </ol>
-5. An AWS Lambda function is used during connect to do the following:
+5. A Lambda function is used for the connect route which throttles inbound connections and returns a 429 response code if over a limit. The following checks and processing are done:
    <ol type="a" style="list-style-type: lower-alpha;">
-      <li>Check if the system is over the total number of <b>connections</b> allowed for this <b>tenant</b></li>
-      <li>Check if the system is over the total number of <b>connections</b> allowed for this <b>session</b></li>
-      <li>Check if the system is over the total number of <b>connections per minute</b> allowed for the <b>tenant</b></li>
-      <li>Check if the system is over the total number of <b>connections per minute</b> allowed for the <b>session</b></li>
-      <li>Add the connectionId to the sessions connectionId set and update the session Time To Live (TTL)</li>
-      <li>Increment the total number of connections for the tenant</li>
+      <li>Over the total number of <b>connections</b> allowed for this <b>tenant</b>.</li>
+      <li>Over the total number of <b>connections</b> allowed for this <b>session</b>.</li>
+      <li>Over the total number of <b>connections per minute</b> allowed for the <b>tenant</b>.</li>
+      <li>Over the total number of <b>connections per minute</b> allowed for the <b>session</b>.</li>
+      <li>Add the connection ID to the sessions connection ID set and update the session Time to Live (TTL).</li>
+      <li>Increment the total number of connections for the tenant.</li>
    </ol>
-6. Messages are processed via a Siloed or Pooled FIFO Queue depending on the route selected.
+6. Messages are processed via a Siloed or Pooled FIFO Queue depending on the API Gateway route. SQS FIFO queues are used to keep messages in order. If we send messages directly to the Lambda function there is the possibility a cold start could occur on the first message delaying its processing while a following message hits a warm Lambda function causing it to process faster and return an out of order reply. The tenant ID, session ID, connection ID and tenant settings are added to each message as <a href="https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-message-metadata.html">message metadata</a>. SQS FIFO queues use a combination of tenant ID and session ID for the <a href="https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/using-messagegroupid-property.html">SQS message group ID</a> to keep messages in order. Each inbound message will update the DynamoDB session TTL to reset the session timeout.
    <ol type="a" style="list-style-type: lower-alpha;">
-     <li>Siloed based processing of messages are sent to the tenants corresponding SQS FIFO queue based on the tenantId. The tenant, session, tenant settings, and connection ID are added as metadata. An AWS Lambda function per tenant is used to read messages from the tenants SQS FIFO queue with a combination of tenantId and sessionId based grouping to keep messages in order. The Lambda will also send the inbound message AND the response to all other connectionIds for the same session. Each inbound message will also update the session TTL.</li>
-     <li>Pooled based processing of messages are sent to a single pooled SQS FIFO queue. The tenant, session, tenant settings, and connection ID are added as metadata. An AWS Lambda function is used to read messages from the SQS FIFO queue with a combination of tenantId and sessionId based grouping to keep messages in order. The Lambda will also send the inbound message AND the response to all other connectionIds for the same session. Each inbound message will also update the session TTL.</li>
+     <li>Silo based messages are processed by the tenant’s corresponding SQS FIFO queue, which is named using the tenant ID. A Lambda function per tenant is used to read messages from the tenant’s SQS FIFO queue.</li>
+     <li>Pool based messages are processed by a single pooled SQS FIFO queue. A Lambda function is used by all tenants to read messages from the pooled SQS FIFO queue. </li>
    </ol>
-7. An AWS Lambda function is used during disconnect to do the following:
+7. A Lambda function is used during disconnect to do the following:
    <ol type="a" style="list-style-type: lower-alpha;">
-     <li>Remove the connectionId from the sessions connectionId set</li>
+     <li>Remove the connection ID from the session connection ID set.</li>
      <li>Decrement the total number of connections for the tenant</li>
    </ol>
-8. Once all connections are closed the client will send an HTTP DELETE request to the Amazon API Gateway HTTP endpoint to remove the session.
+8. Once all connections are closed, the client will send an HTTP DELETE request to the Amazon API Gateway HTTP endpoint to remove the session.
 
 ## Requirements
 1. <a href="https://maven.apache.org/">Apache Maven</a> 3.8.1
