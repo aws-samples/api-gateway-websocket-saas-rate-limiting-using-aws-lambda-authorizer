@@ -15,6 +15,8 @@ const sessionUrl = "{{sessionUrl}}";
 const tenantUrl = "{{tenantUrl}}";
 const websocketUrl = "{{WssUrl}}";
 let connection;
+let msgNumber = 1;
+const messageNumberTemplate = "{{msgNumber}}";
 
 function addCommunication(input, event) {
     console.log(input, event);
@@ -86,6 +88,7 @@ function loadTenants() {
                 opt.innerHTML = escape(items.Items[x].tenantId);
                 tenantId.appendChild(opt);
             }
+            setupSiloPoolButtons();
         }
     };
 
@@ -181,10 +184,24 @@ connectButton.addEventListener("click", () => {
 function sendMesssage(silo) {
     let data = {};
     data.message = message.value;
+    if (data.message.includes(messageNumberTemplate)) {
+        msgNumber = msgNumber + 1;
+        data.message = data.message.replace(messageNumberTemplate, "" + msgNumber);
+    }
     data.action = silo ? "SiloSQS" : "PooledSQS";
     let sendData = JSON.stringify(data);
     connection.send(sendData);
     addCommunication("Sent: " + sendData);
+}
+
+function setupSiloPoolButtons() {
+    sendPooledButton.disabled = false;
+    sendSiloButton.disabled = false;
+    if (tenantId.value == "31a2e8c6-1826-11ec-9621-0242ac130002") {
+        sendPooledButton.disabled = true;
+    } else {
+        sendSiloButton.disabled = true;
+    }
 }
 
 sendPooledButton.addEventListener("click", () => {
@@ -194,3 +211,8 @@ sendPooledButton.addEventListener("click", () => {
 sendSiloButton.addEventListener("click", () => {
     sendMesssage(true);
 });
+
+tenantId.addEventListener("change", () => {
+    setupSiloPoolButtons();
+});
+
