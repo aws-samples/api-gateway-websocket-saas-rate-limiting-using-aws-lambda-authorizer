@@ -3,15 +3,15 @@
 
 package com.amazonaws.services.sample.apigateway.websocketratelimit;
 
-import software.amazon.awscdk.core.App;
+import org.junit.Assert;
+import org.junit.Test;
+import software.amazon.awscdk.App;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 
 import java.io.IOException;
 
-import org.junit.jupiter.api.Test;
-import static org.assertj.core.api.Assertions.assertThat;
 
 public class RateLimitTest {
     private final static ObjectMapper JSON =
@@ -24,8 +24,6 @@ public class RateLimitTest {
 
         // synthesize the stack to a CloudFormation template
         JsonNode actual = JSON.valueToTree(app.synth().getStackArtifact(stack.getArtifactId()).getTemplate());
-
-        // Update once resources have been added to the stack
-        assertThat(actual != null);
+        Assert.assertNotNull(actual);
     }
 }

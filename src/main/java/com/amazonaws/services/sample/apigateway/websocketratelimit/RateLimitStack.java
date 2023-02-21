@@ -3,14 +3,16 @@
 
 package com.amazonaws.services.sample.apigateway.websocketratelimit;
 
-import software.amazon.awscdk.core.*;
+import software.amazon.awscdk.*;
 import software.amazon.awscdk.customresources.AwsCustomResource;
 import software.amazon.awscdk.customresources.AwsCustomResourcePolicy;
 import software.amazon.awscdk.customresources.AwsSdkCall;
 import software.amazon.awscdk.customresources.PhysicalResourceId;
 import software.amazon.awscdk.services.apigatewayv2.*;
-import software.amazon.awscdk.services.apigatewayv2.integrations.LambdaProxyIntegration;
-import software.amazon.awscdk.services.apigatewayv2.integrations.LambdaWebSocketIntegration;
+import software.amazon.awscdk.services.apigatewayv2.alpha.*;
+import software.amazon.awscdk.services.apigatewayv2.alpha.HttpMethod;
+import software.amazon.awscdk.services.apigatewayv2.integrations.alpha.HttpLambdaIntegration;
+import software.amazon.awscdk.services.apigatewayv2.integrations.alpha.WebSocketLambdaIntegration;
 import software.amazon.awscdk.services.dynamodb.*;
 import software.amazon.awscdk.services.iam.*;
 import software.amazon.awscdk.services.lambda.Runtime;
@@ -20,6 +22,7 @@ import software.amazon.awscdk.services.lambda.eventsources.SqsEventSource;
 import software.amazon.awscdk.services.sqs.DeduplicationScope;
 import software.amazon.awscdk.services.sqs.FifoThroughputLimit;
 import software.amazon.awscdk.services.sqs.Queue;
+import software.constructs.Construct;
 
 import java.util.List;
 import java.util.Map;
@@ -187,11 +190,7 @@ public class RateLimitStack extends Stack {
         api = WebSocketApi.Builder.create(this, "WebSocketAPIGateway")
                 .apiName("WebSocketRateLimitSample")
                 .description("Rate limit websocket connections using a Lambda Authorizer.")
-                .disconnectRouteOptions(WebSocketRouteOptions.builder()
-                        .integration(LambdaWebSocketIntegration.Builder.create()
-                                .handler(webSocketDisconnectFunction)
-                                .build())
-                        .build())
+                .disconnectRouteOptions(WebSocketRouteOptions.builder().integration(new WebSocketLambdaIntegration("WebSocketAPIGatewayDisconnectRoute",webSocketDisconnectFunction)).build())
                 .build();
     }
 
@@ -291,33 +290,28 @@ public class RateLimitStack extends Stack {
                 .description("Creates and removes sessions and loads sample client")
                 .createDefaultStage(false)
                 .build();
+        HttpLambdaIntegration sessionLambdaIntegration = new HttpLambdaIntegration("SessionLambdaIntegration", sessionFunction);
+        HttpLambdaIntegration tenantLambdaIntegration = new HttpLambdaIntegration("TenantLambdaIntegration", tenantFunction);
+        HttpLambdaIntegration sampleClientLambdaIntegration = new HttpLambdaIntegration("SampleClientLambdaIntegration", sampleClientFunction);
         sessionApi.addRoutes(AddRoutesOptions.builder()
                 .methods(List.of(HttpMethod.PUT))
                 .path("/session")
-                .integration(LambdaProxyIntegration.Builder.create()
-                        .handler(sessionFunction)
-                        .build())
+                .integration(sessionLambdaIntegration)
                 .build());
         sessionApi.addRoutes(AddRoutesOptions.builder()
                 .methods(List.of(HttpMethod.DELETE))
                 .path("/session")
-                .integration(LambdaProxyIntegration.Builder.create()
-                        .handler(sessionFunction)
-                        .build())
+                .integration(sessionLambdaIntegration)
                 .build());
         sessionApi.addRoutes(AddRoutesOptions.builder()
                 .methods(List.of(HttpMethod.GET))
                 .path("/tenant")
-                .integration(LambdaProxyIntegration.Builder.create()
-                        .handler(tenantFunction)
-                        .build())
+                .integration(tenantLambdaIntegration)
                 .build());
         sessionApi.addRoutes(AddRoutesOptions.builder()
                 .methods(List.of(HttpMethod.GET))
                 .path("/SampleClient")
-                .integration(LambdaProxyIntegration.Builder.create()
-                        .handler(sampleClientFunction)
-                        .build())
+                .integration(sampleClientLambdaIntegration)
                 .build());
         sessionApi.addStage("SessionApiProductionStage", HttpStageOptions.builder()
                 .autoDeploy(true)
