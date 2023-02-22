@@ -3,14 +3,16 @@
 
 package com.amazonaws.services.sample.apigateway.websocketratelimit;
 
-import software.amazon.awscdk.core.*;
+import software.amazon.awscdk.*;
 import software.amazon.awscdk.customresources.AwsCustomResource;
 import software.amazon.awscdk.customresources.AwsCustomResourcePolicy;
 import software.amazon.awscdk.customresources.AwsSdkCall;
 import software.amazon.awscdk.customresources.PhysicalResourceId;
 import software.amazon.awscdk.services.apigatewayv2.*;
-import software.amazon.awscdk.services.apigatewayv2.integrations.LambdaProxyIntegration;
-import software.amazon.awscdk.services.apigatewayv2.integrations.LambdaWebSocketIntegration;
+import software.amazon.awscdk.services.apigatewayv2.alpha.*;
+import software.amazon.awscdk.services.apigatewayv2.alpha.HttpMethod;
+import software.amazon.awscdk.services.apigatewayv2.integrations.alpha.HttpLambdaIntegration;
+import software.amazon.awscdk.services.apigatewayv2.integrations.alpha.WebSocketLambdaIntegration;
 import software.amazon.awscdk.services.dynamodb.*;
 import software.amazon.awscdk.services.iam.*;
 import software.amazon.awscdk.services.lambda.Runtime;
@@ -20,6 +22,7 @@ import software.amazon.awscdk.services.lambda.eventsources.SqsEventSource;
 import software.amazon.awscdk.services.sqs.DeduplicationScope;
 import software.amazon.awscdk.services.sqs.FifoThroughputLimit;
 import software.amazon.awscdk.services.sqs.Queue;
+import software.constructs.Construct;
 
 import java.util.List;
 import java.util.Map;
@@ -123,7 +126,7 @@ public class RateLimitStack extends Stack {
 
     private void createSessionTTLLambda() {
         sessionTTLLambda = Function.Builder.create(this, "SessionTTLLambda")
-                .runtime(Runtime.NODEJS_12_X)
+                .runtime(Runtime.NODEJS_14_X)
                 .code(Code.fromAsset("lambda"))
                 .handler("SessionTTL.handler")
                 .events(List.of(DynamoEventSource.Builder.create(sessionTable).startingPosition(StartingPosition.LATEST).build()))
@@ -132,7 +135,7 @@ public class RateLimitStack extends Stack {
 
     private void createSampleClientLambda() {
         sampleClientFunction = Function.Builder.create(this, "SampleClientHandler")
-                .runtime(Runtime.NODEJS_12_X)
+                .runtime(Runtime.NODEJS_14_X)
                 .code(Code.fromAsset("lambda"))
                 .handler("SampleClientGet.handler")
                 .build();
@@ -140,7 +143,7 @@ public class RateLimitStack extends Stack {
 
     private void createSessionLambda() {
         sessionFunction = Function.Builder.create(this, "Session")
-                .runtime(Runtime.NODEJS_12_X)
+                .runtime(Runtime.NODEJS_14_X)
                 .code(Code.fromAsset("lambda"))
                 .handler("Session.handler")
                 .build();
@@ -148,7 +151,7 @@ public class RateLimitStack extends Stack {
 
     private void createTenantLambda() {
         tenantFunction = Function.Builder.create(this, "Tenant")
-                .runtime(Runtime.NODEJS_12_X)
+                .runtime(Runtime.NODEJS_14_X)
                 .code(Code.fromAsset("lambda"))
                 .handler("Tenant.handler")
                 .build();
@@ -157,7 +160,7 @@ public class RateLimitStack extends Stack {
 
     private void createWebSocketConnectLambda() {
         webSocketConnectFunction = Function.Builder.create(this, "WebSocketConnect")
-                .runtime(Runtime.NODEJS_12_X)
+                .runtime(Runtime.NODEJS_14_X)
                 .code(Code.fromAsset("lambda"))
                 .handler("WebSocketConnect.handler")
                 .build();
@@ -165,7 +168,7 @@ public class RateLimitStack extends Stack {
 
     private void createWebSocketDisconnectLambda() {
         webSocketDisconnectFunction = Function.Builder.create(this, "WebSocketDisconnect")
-                .runtime(Runtime.NODEJS_12_X)
+                .runtime(Runtime.NODEJS_14_X)
                 .code(Code.fromAsset("lambda"))
                 .handler("WebSocketDisconnect.handler")
                 .build();
@@ -174,7 +177,7 @@ public class RateLimitStack extends Stack {
 
     private void createAuthorizerLambda() {
         authorizerFunction = Function.Builder.create(this, "Authorizer")
-                .runtime(Runtime.NODEJS_12_X)
+                .runtime(Runtime.NODEJS_14_X)
                 .code(Code.fromAsset("lambda"))
                 .handler("Authorizer.handler")
                 .build();
@@ -187,11 +190,7 @@ public class RateLimitStack extends Stack {
         api = WebSocketApi.Builder.create(this, "WebSocketAPIGateway")
                 .apiName("WebSocketRateLimitSample")
                 .description("Rate limit websocket connections using a Lambda Authorizer.")
-                .disconnectRouteOptions(WebSocketRouteOptions.builder()
-                        .integration(LambdaWebSocketIntegration.Builder.create()
-                                .handler(webSocketDisconnectFunction)
-                                .build())
-                        .build())
+                .disconnectRouteOptions(WebSocketRouteOptions.builder().integration(new WebSocketLambdaIntegration("WebSocketAPIGatewayDisconnectRoute",webSocketDisconnectFunction)).build())
                 .build();
     }
 
@@ -246,7 +245,7 @@ public class RateLimitStack extends Stack {
                 .apiId(api.getApiId())
                 .routeKey(nameExt + "SQS")
                 .target("integrations/" + integration.getRef())
-                .build();            
+                .build();
     }
 
     private void createAuthorizer() {
@@ -291,33 +290,28 @@ public class RateLimitStack extends Stack {
                 .description("Creates and removes sessions and loads sample client")
                 .createDefaultStage(false)
                 .build();
+        HttpLambdaIntegration sessionLambdaIntegration = new HttpLambdaIntegration("SessionLambdaIntegration", sessionFunction);
+        HttpLambdaIntegration tenantLambdaIntegration = new HttpLambdaIntegration("TenantLambdaIntegration", tenantFunction);
+        HttpLambdaIntegration sampleClientLambdaIntegration = new HttpLambdaIntegration("SampleClientLambdaIntegration", sampleClientFunction);
         sessionApi.addRoutes(AddRoutesOptions.builder()
                 .methods(List.of(HttpMethod.PUT))
                 .path("/session")
-                .integration(LambdaProxyIntegration.Builder.create()
-                        .handler(sessionFunction)
-                        .build())
+                .integration(sessionLambdaIntegration)
                 .build());
         sessionApi.addRoutes(AddRoutesOptions.builder()
                 .methods(List.of(HttpMethod.DELETE))
                 .path("/session")
-                .integration(LambdaProxyIntegration.Builder.create()
-                        .handler(sessionFunction)
-                        .build())
+                .integration(sessionLambdaIntegration)
                 .build());
         sessionApi.addRoutes(AddRoutesOptions.builder()
                 .methods(List.of(HttpMethod.GET))
                 .path("/tenant")
-                .integration(LambdaProxyIntegration.Builder.create()
-                        .handler(tenantFunction)
-                        .build())
+                .integration(tenantLambdaIntegration)
                 .build());
         sessionApi.addRoutes(AddRoutesOptions.builder()
                 .methods(List.of(HttpMethod.GET))
                 .path("/SampleClient")
-                .integration(LambdaProxyIntegration.Builder.create()
-                        .handler(sampleClientFunction)
-                        .build())
+                .integration(sampleClientLambdaIntegration)
                 .build());
         sessionApi.addStage("SessionApiProductionStage", HttpStageOptions.builder()
                 .autoDeploy(true)
@@ -327,23 +321,30 @@ public class RateLimitStack extends Stack {
 
     private void setupAPIGatewayLambdaFunctions() {
         // Update the lambdas to allow callbacks to this websocket endpoint and set environment variables to be able to reach various resources.
-        setupWebSocketFunction(sessionTTLLambda, null, true, true);
-        setupWebSocketFunction(webSocketConnectFunction, "/*/$connect", true);
-        setupWebSocketFunction(webSocketDisconnectFunction, "/*/$disconnect", true);
-        setupWebSocketFunction(authorizerFunction, "/authorizers/" + authorizer.getRef(), false);
-        setupWebSocketFunction(sessionFunction, null, false);
-        setupWebSocketFunction(tenantFunction, null, false, false);
+        // A role is created for each lambda to allow us to Assume the role with session tags to 
+        Role sessionTTLLambdaTableRole = Role.Builder.create(this, "SessionTTLLambdaTableRole").assumedBy(new SessionTagsPrincipal(sessionTTLLambda.getRole())).build();
+        setupWebSocketFunction(sessionTTLLambda, sessionTTLLambdaTableRole, null, true, true);
+        Role webSocketConnectFunctionTableRole = Role.Builder.create(this, "WebSocketConnectFunctionTableRole").assumedBy(new SessionTagsPrincipal(webSocketConnectFunction.getRole())).build();
+        setupWebSocketFunction(webSocketConnectFunction, webSocketConnectFunctionTableRole, "/*/$connect", true);
+        Role webSocketDisconnectFunctionTableRole = Role.Builder.create(this, "WebSocketDisconnectFunctionTableRole").assumedBy(new SessionTagsPrincipal(webSocketDisconnectFunction.getRole())).build();
+        setupWebSocketFunction(webSocketDisconnectFunction, webSocketDisconnectFunctionTableRole, "/*/$disconnect", true);
+        Role authorizerFunctionTableRole = Role.Builder.create(this, "AuthorizerFunctionTableRole").assumedBy(new SessionTagsPrincipal(authorizerFunction.getRole())).build();
+        setupWebSocketFunction(authorizerFunction, authorizerFunctionTableRole, "/authorizers/" + authorizer.getRef(), false);
+        Role sessionFunctionTableRole = Role.Builder.create(this, "SessionFunctionTableRole").assumedBy(new SessionTagsPrincipal(sessionFunction.getRole())).build();
+        setupWebSocketFunction(sessionFunction, sessionFunctionTableRole,null, false);
+        Role tenantFunctionTableRole = Role.Builder.create(this, "TenantFunctionTableRole").assumedBy(new SessionTagsPrincipal(tenantFunction.getRole())).build();
+        setupWebSocketFunction(tenantFunction, tenantFunctionTableRole,null, false, false);
 
         sampleClientFunction.addEnvironment("WssUrl", stage.getUrl());
         sampleClientFunction.addEnvironment("SessionUrl", sessionApi.getApiEndpoint() + "/production/session");
         sampleClientFunction.addEnvironment("TenantUrl", sessionApi.getApiEndpoint() + "/production/tenant");
     }
 
-    private void setupWebSocketFunction(Function function, String permissionEndpoint, boolean includePostPolicy) {
-        setupWebSocketFunction(function, permissionEndpoint, includePostPolicy, false);
+    private void setupWebSocketFunction(Function function, Role tableRole, String permissionEndpoint, boolean includePostPolicy) {
+        setupWebSocketFunction(function, tableRole, permissionEndpoint, includePostPolicy, false);
     }
 
-    private void setupWebSocketFunction(Function function, String permissionEndpoint, boolean includePostPolicy, boolean includeDeletePolicy) {
+    private void setupWebSocketFunction(Function function, Role tableRole, String permissionEndpoint, boolean includePostPolicy, boolean includeDeletePolicy) {
         function.addEnvironment("ApiGatewayEndpoint", stage.getUrl().replace("wss://", ""));
         function.addEnvironment("TenantTableName", tenantTable.getTableName());
         function.addEnvironment("SessionTableName", sessionTable.getTableName());
@@ -375,16 +376,16 @@ public class RateLimitStack extends Stack {
                     .sourceArn("arn:aws:execute-api:" + getRegion() + ":" + getAccount() + ":" + api.getApiId() + permissionEndpoint)
                     .build());
         }
-        function.addToRolePolicy(PolicyStatement.Builder.create()
-                .effect(Effect.ALLOW)
-                .actions(List.of("sts:AssumeRole", "sts:TagSession"))
-                .resources(List.of(function.getRole().getRoleArn()))
-                .build());
-        function.addEnvironment("RoleArn", function.getRole().getRoleArn());
-
-        tenantTable.grantReadData(function).getPrincipalStatement().addCondition("ForAllValues:StringEquals", Map.of("dynamodb:LeadingKeys", List.of("${aws:PrincipalTag/tenantId}")));
-        sessionTable.grantReadWriteData(function).getPrincipalStatement().addCondition("ForAllValues:StringEquals", Map.of("dynamodb:LeadingKeys", List.of("${aws:PrincipalTag/tenantId}")));
-        limitTable.grantReadWriteData(function).getPrincipalStatement().addCondition("ForAllValues:StringLike", Map.of("dynamodb:LeadingKeys", List.of("${aws:PrincipalTag/tenantId}*")));
+//        function.addToRolePolicy(PolicyStatement.Builder.create()
+//                .effect(Effect.ALLOW)
+//                .actions(List.of("sts:AssumeRole", "sts:TagSession"))
+//                .resources(List.of(tableRole.getRoleArn()))
+//                .build());
+        function.addEnvironment("RoleArn", tableRole.getRoleArn());
+        tableRole.grantAssumeRole(function.getRole());
+        tenantTable.grantReadData(tableRole).getPrincipalStatement().addCondition("ForAllValues:StringEquals", Map.of("dynamodb:LeadingKeys", List.of("${aws:PrincipalTag/tenantId}")));
+        sessionTable.grantReadWriteData(tableRole).getPrincipalStatement().addCondition("ForAllValues:StringEquals", Map.of("dynamodb:LeadingKeys", List.of("${aws:PrincipalTag/tenantId}")));
+        limitTable.grantReadWriteData(tableRole).getPrincipalStatement().addCondition("ForAllValues:StringLike", Map.of("dynamodb:LeadingKeys", List.of("${aws:PrincipalTag/tenantId}*")));
     }
 
     private void addSampleTenantIds() {
@@ -432,12 +433,13 @@ public class RateLimitStack extends Stack {
 
     private Function createSQSEchoLambda(String tenantId) {
         Function function = Function.Builder.create(this, "SQSEcho" + tenantId)
-                .runtime(Runtime.NODEJS_12_X)
+                .runtime(Runtime.NODEJS_14_X)
                 .code(Code.fromAsset("lambda"))
                 .handler("SQSEcho.handler")
                 .build();
         Tags.of(function).add("tenantId", tenantId);
-        setupWebSocketFunction(function, null, true);
+        Role lambdaTableRole = Role.Builder.create(this, "SQSEcho" + tenantId + "TableRole").assumedBy(new SessionTagsPrincipal(function.getRole())).build();
+        setupWebSocketFunction(function, lambdaTableRole, null, true);
         return function;
     }
 

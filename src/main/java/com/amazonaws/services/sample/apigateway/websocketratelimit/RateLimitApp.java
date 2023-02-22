@@ -3,8 +3,8 @@
 
 package com.amazonaws.services.sample.apigateway.websocketratelimit;
 
-import software.amazon.awscdk.core.App;
-import software.amazon.awscdk.core.StackProps;
+import software.amazon.awscdk.App;
+import software.amazon.awscdk.StackProps;
 
 public class RateLimitApp {
     public static void main(final String[] args) {
