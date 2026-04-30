@@ -1,11 +1,12 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT-0
 
-const AWS = require("aws-sdk");
+const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
+const { DynamoDBDocumentClient, UpdateCommand, GetCommand, ScanCommand, DeleteCommand, TransactWriteCommand } = require("@aws-sdk/lib-dynamodb");
+const { fromTemporaryCredentials } = require("@aws-sdk/credential-providers");
 
 exports.secondsPerMinute = 60;
 
-// Encapsulating the two ways in which we can access a tenant Id depending on if the system has already been authorized 
 exports.getTenantId = function(event) {
     if (event.requestContext && event.requestContext.authorizer && event.requestContext.authorizer.tenantId) {
         return event.requestContext.authorizer.tenantId;
@@ -15,7 +16,6 @@ exports.getTenantId = function(event) {
     return undefined;
 }
 
-// Encapsulating the two ways in which we can access a session Id depending on if the system has already been authorized 
 exports.getSessionId = function(event) {
     if (event.requestContext && event.requestContext.authorizer && event.requestContext.authorizer.sessionId) {
         return event.requestContext.authorizer.sessionId;
@@ -25,45 +25,35 @@ exports.getSessionId = function(event) {
     return undefined;
 }
 
-// During the creation of the DynamoBD connection the tenant Id is added as the transitive tag key
+// During the creation of the DynamoDB connection the tenant Id is added as the transitive tag key
 // to make sure we can only access data for this specific tenant
 exports.createDynamoDBClient = function(event) {
-    var credentials = new AWS.ChainableTemporaryCredentials({
+    const credentials = fromTemporaryCredentials({
         params: {
             RoleArn: process.env.RoleArn,
-            Tags: [{
-                Key: "tenantId",
-                Value: exports.getTenantId(event)
-            }],
-            TransitiveTagKeys: [
-                "tenantId"
-            ]
-        },
-        Credentials: {
-            AccessKeyId: AWS.config.credentials.AccessKeyId,
-            SecretAccessKey: AWS.config.credentials.SecretAccessKey,
-            SessionToken: AWS.config.credentials.SessionToken
+            RoleSessionName: "lambda-session",
+            Tags: [{ Key: "tenantId", Value: exports.getTenantId(event) }],
+            TransitiveTagKeys: ["tenantId"]
         }
     });
-    return new AWS.DynamoDB.DocumentClient(new AWS.Config({
-        credentials: credentials
-    }));
+    const ddbClient = new DynamoDBClient({ credentials });
+    return DynamoDBDocumentClient.from(ddbClient, {
+        marshallOptions: { convertClassInstanceToMap: true }
+    });
 }
 
-// Update the limit table by incrementing the itemCount field by 1 for the specified key/current min combo
-// this function returns a promise value of the update command
-exports.incrementLimitTablePerMinute = function(dynamo, tenantId, keyStart, keyMid) {
-    var epoch = exports.seconds_since_epoch();
-    let currentMin = (Math.trunc(epoch / exports.secondsPerMinute) * exports.secondsPerMinute);
-    let key = keyStart + ":" + keyMid + ":" + currentMin;
-    var updateParams = {
-        "TableName": process.env.LimitTableName,
-        "Key": { tenantId: tenantId, key: key },
-        "UpdateExpression": "set itemCount = if_not_exists(itemCount, :zero) + :inc, itemTTL = :ttl",
-        "ExpressionAttributeValues": { ":ttl": currentMin + exports.secondsPerMinute + 1, ":inc": 1, ":zero": 0 },
-        "ReturnValues": "UPDATED_NEW"
+exports.incrementLimitTablePerMinute = async function(dynamo, tenantId, keyStart, keyMid) {
+    const epoch = exports.seconds_since_epoch();
+    const currentMin = Math.trunc(epoch / exports.secondsPerMinute) * exports.secondsPerMinute;
+    const key = keyStart + ":" + keyMid + ":" + currentMin;
+    const params = {
+        TableName: process.env.LimitTableName,
+        Key: { tenantId, key },
+        UpdateExpression: "set itemCount = if_not_exists(itemCount, :zero) + :inc, itemTTL = :ttl",
+        ExpressionAttributeValues: { ":ttl": currentMin + exports.secondsPerMinute + 1, ":inc": 1, ":zero": 0 },
+        ReturnValues: "UPDATED_NEW"
     };
-    return dynamo.update(updateParams).promise();
+    return dynamo.send(new UpdateCommand(params));
 }
 
 exports.seconds_since_epoch = function() {
@@ -71,37 +61,21 @@ exports.seconds_since_epoch = function() {
 }
 
 exports.createMessageThrottleResponse = function(connectionId, requestId) {
-    return JSON.stringify({ message: "Too Many Requests", connectionId: connectionId, requestId: requestId });
+    return JSON.stringify({ message: "Too Many Requests", connectionId, requestId });
 }
 
 exports.createEchoResponse = function(tenantId, sessionId, connectionId, message, queue) {
-    let response = {
-        message: JSON.parse(message),
-        tenantId: tenantId,
-        sessionId: sessionId,
-        connectionId: connectionId,
-        queue: queue
-    };
-    if (queue) {
-        response.queue = queue;
-    }
+    const response = { message: JSON.parse(message), tenantId, sessionId, connectionId };
+    if (queue) response.queue = queue;
     return JSON.stringify(response);
 }
 
-// A policy is generated with an effect (Allow/Deny) and the context is filled
-// with the tenant and session information
 let generatePolicy = function(effect, resource, event, tenantSettings) {
-    // Required output:
-    let authResponse = {};
-    authResponse.principalId = 'anonymous';
+    let authResponse = { principalId: 'anonymous' };
     if (effect && resource) {
         authResponse.policyDocument = {
-            Version: '2012-10-17', // default version
-            Statement: [{
-                Action: 'execute-api:Invoke', // default action
-                Effect: effect,
-                Resource: resource
-            }]
+            Version: '2012-10-17',
+            Statement: [{ Action: 'execute-api:Invoke', Effect: effect, Resource: resource }]
         };
     }
     authResponse.context = {
@@ -118,3 +92,10 @@ let generatePolicy = function(effect, resource, event, tenantSettings) {
 }
 exports.generateAllow = function(resource, event, tenantSettings) { return generatePolicy('Allow', resource, event, tenantSettings); }
 exports.generateDeny = function(resource, event) { return generatePolicy('Deny', resource, event, null); }
+
+// Export command classes for use in other modules
+exports.GetCommand = GetCommand;
+exports.ScanCommand = ScanCommand;
+exports.UpdateCommand = UpdateCommand;
+exports.DeleteCommand = DeleteCommand;
+exports.TransactWriteCommand = TransactWriteCommand;

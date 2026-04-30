@@ -1,14 +1,11 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT-0
 
-const AWS = require("aws-sdk");
+const { ApiGatewayManagementApiClient, PostToConnectionCommand } = require("@aws-sdk/client-apigatewaymanagementapi");
 const common = require("./Common.js");
-const apig = new AWS.ApiGatewayManagementApi({ endpoint: process.env.ApiGatewayEndpoint });
+const apig = new ApiGatewayManagementApiClient({ endpoint: "https://" + process.env.ApiGatewayEndpoint });
 
-// This handler will iterate the event records from the SQS queue and send a response message back to each
-// connection associated with the session. This keeps all session connections in sync across multiple web browser windows/tabs.
 exports.handler = async (event, context) => {
-    //console.log("Event: ", JSON.stringify(event, null, 2));
     if (event.Records) {
         for (let r = 0; r < event.Records.length; r++) {
             let recordEvent = {
@@ -23,8 +20,8 @@ exports.handler = async (event, context) => {
                 connectionId: event.Records[r].messageAttributes.connectionId.stringValue,
                 requestId: event.Records[r].messageAttributes.requestId.stringValue,
                 body: event.Records[r].body
-            }
-            let queueName = event.Records[r].eventSourceARN.substring(event.Records[r].eventSourceARN.indexOf("tenant-"), event.Records[r].eventSourceARN.length);
+            };
+            let queueName = event.Records[r].eventSourceARN.substring(event.Records[r].eventSourceARN.indexOf("tenant-"));
             try {
                 let body = recordEvent.body;
                 let connectionId = recordEvent.connectionId;
@@ -32,42 +29,36 @@ exports.handler = async (event, context) => {
                 let tenantId = common.getTenantId(recordEvent);
                 let sessionId = common.getSessionId(recordEvent);
                 let dynamo = common.createDynamoDBClient(recordEvent);
-                // Update and check the total number of messages per minute per tenant
+
                 let updateResponse = await common.incrementLimitTablePerMinute(dynamo, tenantId, tenantId, "minutemsg");
                 if (!updateResponse || updateResponse.Attributes.itemCount > recordEvent.requestContext.authorizer.messagesPerMinute) {
                     console.log("Tenant: " + tenantId + " message rate limit hit");
-                    await apig.postToConnection({ ConnectionId: connectionId, Data: common.createMessageThrottleResponse(connectionId, requestId) }).promise();
+                    await apig.send(new PostToConnectionCommand({ ConnectionId: connectionId, Data: common.createMessageThrottleResponse(connectionId, requestId) }));
                     continue;
                 }
 
-                let updateParams = {
-                    "TableName": process.env.SessionTableName,
-                    "Key": { tenantId: tenantId, sessionId: sessionId },
-                    "UpdateExpression": "set sessionTTL = :ttl",
-                    "ExpressionAttributeValues": {
-                        ":ttl": (Math.floor(+new Date() / 1000) + parseInt(recordEvent.requestContext.authorizer.sessionTTL))
-                    },
-                    "ReturnValues": "ALL_OLD"
-                };
-                let results = await dynamo.update(updateParams).promise();
-                let connectionIds = results.Attributes.connectionIds.values;
+                let results = await dynamo.send(new common.UpdateCommand({
+                    TableName: process.env.SessionTableName,
+                    Key: { tenantId, sessionId },
+                    UpdateExpression: "set sessionTTL = :ttl",
+                    ExpressionAttributeValues: { ":ttl": (Math.floor(+new Date() / 1000) + parseInt(recordEvent.requestContext.authorizer.sessionTTL)) },
+                    ReturnValues: "ALL_OLD"
+                }));
+                let connectionIds = [...results.Attributes.connectionIds];
                 for (let x = 0; x < connectionIds.length; x++) {
                     if (connectionIds[x] != connectionId) {
-                        await apig.postToConnection({ ConnectionId: connectionIds[x], Data: `${body}` }).promise();
+                        await apig.send(new PostToConnectionCommand({ ConnectionId: connectionIds[x], Data: `${body}` }));
                     }
                 }
                 for (let x = 0; x < connectionIds.length; x++) {
-                    await apig.postToConnection({ ConnectionId: connectionIds[x], Data: common.createEchoResponse(tenantId, sessionId, connectionIds[x], body, queueName) }).promise();
+                    await apig.send(new PostToConnectionCommand({ ConnectionId: connectionIds[x], Data: common.createEchoResponse(tenantId, sessionId, connectionIds[x], body, queueName) }));
                 }
             }
             catch (err) {
                 console.error(err);
-                return { statusCode: 1011 }; // return server error code
+                return { statusCode: 1011 };
             }
         }
     }
-    const response = {
-        statusCode: 200
-    };
-    return response;
+    return { statusCode: 200 };
 };

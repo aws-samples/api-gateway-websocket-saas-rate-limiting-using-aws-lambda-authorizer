@@ -8,7 +8,9 @@ import software.amazon.awscdk.customresources.AwsCustomResource;
 import software.amazon.awscdk.customresources.AwsCustomResourcePolicy;
 import software.amazon.awscdk.customresources.AwsSdkCall;
 import software.amazon.awscdk.customresources.PhysicalResourceId;
-import software.amazon.awscdk.services.apigatewayv2.*;
+import software.amazon.awscdk.services.apigatewayv2.CfnAuthorizer;
+import software.amazon.awscdk.services.apigatewayv2.CfnIntegration;
+import software.amazon.awscdk.services.apigatewayv2.CfnRoute;
 import software.amazon.awscdk.services.apigatewayv2.alpha.*;
 import software.amazon.awscdk.services.apigatewayv2.alpha.HttpMethod;
 import software.amazon.awscdk.services.apigatewayv2.integrations.alpha.HttpLambdaIntegration;
@@ -126,7 +128,7 @@ public class RateLimitStack extends Stack {
 
     private void createSessionTTLLambda() {
         sessionTTLLambda = Function.Builder.create(this, "SessionTTLLambda")
-                .runtime(Runtime.NODEJS_14_X)
+                .runtime(Runtime.NODEJS_24_X)
                 .code(Code.fromAsset("lambda"))
                 .handler("SessionTTL.handler")
                 .events(List.of(DynamoEventSource.Builder.create(sessionTable).startingPosition(StartingPosition.LATEST).build()))
@@ -135,7 +137,7 @@ public class RateLimitStack extends Stack {
 
     private void createSampleClientLambda() {
         sampleClientFunction = Function.Builder.create(this, "SampleClientHandler")
-                .runtime(Runtime.NODEJS_14_X)
+                .runtime(Runtime.NODEJS_24_X)
                 .code(Code.fromAsset("lambda"))
                 .handler("SampleClientGet.handler")
                 .build();
@@ -143,7 +145,7 @@ public class RateLimitStack extends Stack {
 
     private void createSessionLambda() {
         sessionFunction = Function.Builder.create(this, "Session")
-                .runtime(Runtime.NODEJS_14_X)
+                .runtime(Runtime.NODEJS_24_X)
                 .code(Code.fromAsset("lambda"))
                 .handler("Session.handler")
                 .build();
@@ -151,7 +153,7 @@ public class RateLimitStack extends Stack {
 
     private void createTenantLambda() {
         tenantFunction = Function.Builder.create(this, "Tenant")
-                .runtime(Runtime.NODEJS_14_X)
+                .runtime(Runtime.NODEJS_24_X)
                 .code(Code.fromAsset("lambda"))
                 .handler("Tenant.handler")
                 .build();
@@ -160,7 +162,7 @@ public class RateLimitStack extends Stack {
 
     private void createWebSocketConnectLambda() {
         webSocketConnectFunction = Function.Builder.create(this, "WebSocketConnect")
-                .runtime(Runtime.NODEJS_14_X)
+                .runtime(Runtime.NODEJS_24_X)
                 .code(Code.fromAsset("lambda"))
                 .handler("WebSocketConnect.handler")
                 .build();
@@ -168,7 +170,7 @@ public class RateLimitStack extends Stack {
 
     private void createWebSocketDisconnectLambda() {
         webSocketDisconnectFunction = Function.Builder.create(this, "WebSocketDisconnect")
-                .runtime(Runtime.NODEJS_14_X)
+                .runtime(Runtime.NODEJS_24_X)
                 .code(Code.fromAsset("lambda"))
                 .handler("WebSocketDisconnect.handler")
                 .build();
@@ -177,7 +179,7 @@ public class RateLimitStack extends Stack {
 
     private void createAuthorizerLambda() {
         authorizerFunction = Function.Builder.create(this, "Authorizer")
-                .runtime(Runtime.NODEJS_14_X)
+                .runtime(Runtime.NODEJS_24_X)
                 .code(Code.fromAsset("lambda"))
                 .handler("Authorizer.handler")
                 .build();
@@ -433,7 +435,7 @@ public class RateLimitStack extends Stack {
 
     private Function createSQSEchoLambda(String tenantId) {
         Function function = Function.Builder.create(this, "SQSEcho" + tenantId)
-                .runtime(Runtime.NODEJS_14_X)
+                .runtime(Runtime.NODEJS_24_X)
                 .code(Code.fromAsset("lambda"))
                 .handler("SQSEcho.handler")
                 .build();

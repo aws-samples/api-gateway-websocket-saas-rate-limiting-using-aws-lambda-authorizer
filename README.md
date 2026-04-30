@@ -41,13 +41,15 @@ This sample also demonstrates pool and silo modes for handling the message traff
 
 ## Requirements
 1. <a href="https://maven.apache.org/">Apache Maven</a> 3.8.1
-2. <a href="https://aws.amazon.com/cdk/">AWS CDK</a> 1.130.0 or later installed
+2. <a href="https://aws.amazon.com/cdk/">AWS CDK</a> 2.1119.0 or later
+3. <a href="https://nodejs.org/">Node.js</a> 18 or later (for npm)
 
 ## Setup
 1. git clone this repository
-2. In the root directory of the repository execute the command ```cdk deploy```
-3. Review the permissions and follow prompts
-4. After deployment the CDK will list the outputs as follows:
+2. Install Lambda dependencies: ```cd lambda && npm install && cd ..```
+3. In the root directory of the repository execute the command ```cdk deploy```
+4. Review the permissions and follow prompts
+5. After deployment the CDK will list the outputs as follows:
    1. APIGatewayWebSocketRateLimitStack.SampleClient
       1. The URI points to the sample web page described below
    2. APIGatewayWebSocketRateLimitStack.SessionURL
